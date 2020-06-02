@@ -1,0 +1,103 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  4.x                                   |
+|   \\  /    A nd           | Web:      www.OpenFOAM.org                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       volVectorField;
+    object      U;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+dimensions      [0 1 -1 0 0 0 0];
+
+internalField   uniform (0 0 0);
+
+boundaryField
+{
+    otherWalls
+    {
+        type            fixedValue;
+        value           uniform (0 0 0);
+    }
+    lowerWall
+    {
+        type            fixedValue;
+        value           uniform (0 0 0);
+    }
+    /*
+    inlet
+    {
+        
+        type            fixedValueProfile;
+        valueProfile    csvFile;
+        
+        valueProfileCoeffs
+        {
+            nHeaderLine         0;          // number of header lines
+            refColumn           0;          // reference column index
+            componentColumns    (1 2 3);    // component column indices
+            separator           ",";        // optional (defaults to ",")
+            mergeSeparators     no;         // merge multiple separators
+            fileName            "$FOAM_CASE/Uprofile.csv";  // name of csv data file
+            outOfBounds         clamp;      // optional out-of-bounds handling
+            interpolationScheme linear;     // optional interpolation scheme
+        }
+        direction        (0 1 0);
+        refPoint         (0 0 0.5);
+
+    }
+    */
+    
+    inlet
+    {
+        type       fixedProfile;
+        profile    csvFile;
+
+        profileCoeffs
+        {
+            nHeaderLine         0;          // Number of header lines
+            refColumn           0;          // Reference column index
+            componentColumns    (1 2 3);    // Component column indices
+            separator           ",";        // Optional (defaults to ",")
+            mergeSeparators     no;         // Merge multiple separators
+            file                "$FOAM_CASE/Uprofile.csv";  // name of csv data file
+            outOfBounds         clamp;      // Optional out-of-bounds handling
+            interpolationScheme linear;     // Optional interpolation scheme
+        }
+        direction        (0 1 0);
+        origin           0;
+    }
+    
+    inControl
+    {
+        /*
+        type    uniformFixedValue;
+        uniformValue
+        {
+            type    tableFile;
+            file    "$FOAM_CASE/control";
+        }
+        */
+        type    uniformFixedValue;
+        uniformValue      tableFile;
+        uniformValueCoeffs
+        {       
+            file     "$FOAM_CASE/control0"; 
+            outOfBounds  clamp;       
+        }
+    }
+    outlet
+    {
+        type            zeroGradient;
+    }
+    frontAndBack
+    {
+        type            empty;
+    }
+}
