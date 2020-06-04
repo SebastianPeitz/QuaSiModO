@@ -135,7 +135,7 @@ def plot(showPlot=True, fOut=None, **kwargs):
                     if plots[ip].flagRef:
                         for j in range(len(plots[s].ref.iRef)):
                             iCol = float(plots[s].ref.iRef[j]) / float(np.maximum(plots[s].y.shape[1] - 1, 1))
-                            axes[ip].plot(plots[s].t, plots[s].ref.z[:len(plots[s].t), plots[s].ref.iRef[j]],
+                            axes[ip].plot(plots[s].t, plots[s].ref.z[:len(plots[s].t), plots[s].ref.iRef[j]].toarray(),
                                           color=plt.cm.RdYlBu(iCol), linestyle=(0, (3, 5, 1, 5, 1, 5)), linewidth=2,
                                           label=labelString)
             elif plots[s].type == 'Surface':

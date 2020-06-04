@@ -3,8 +3,7 @@ import scipy as sp
 
 
 def timeTMap(z0, t0, iu, modelData):
-    alpha = np.zeros([modelData.A[iu].shape[0], 1], dtype=float)
-    alpha[:, 0] = (z0 - modelData.yMean[iu][:, 0]) @ modelData.M2D @ modelData.Psi[iu]
+    alpha = modelData.Psi[iu].transpose() @ modelData.M2D @ (np.array([z0]).transpose() - modelData.yMean[iu])
     nt = 1
 
     aC = np.zeros(alpha.shape, dtype=float)
@@ -31,22 +30,25 @@ def timeTMap(z0, t0, iu, modelData):
         k4 = modelData.A[iu] + modelData.B[iu] @ a + aC
 
         alpha += modelData.h / 6.0 * (k1 + 2.0 * (k2 + k3) + k4)
+        # alpha += modelData.h * k1
 
-    z = modelData.Psi[iu] @ alpha + modelData.yMean[iu]
+    z = (modelData.Psi[iu] @ alpha) + modelData.yMean[iu]
     return z[:, 0], t0 + modelData.h, modelData
 
 
 def calcJ(z, zRef, u, h, modelData):
-    alpha = np.zeros([modelData.A[0].shape[0], z.shape[0]], dtype=float)
     iu = mapUToIu(u, modelData.uGrid)
-    for i in range(z.shape[0]):
+    alpha = np.zeros([iu.shape[0], modelData.A[0].shape[0]], dtype=float)
+    for i in range(iu.shape[0]):
         alpha[i, :] = (z[i, :] - modelData.yMean[iu[i, 0]][:, 0]) @ modelData.M2D @ modelData.Psi[iu[i, 0]]
-    deltaZ = alpha - zRef
-    deltaU = (u[1:] - u[:-1]) / h
+    deltaZ = np.array(alpha - zRef[: iu.shape[0], :modelData.A[0].shape[0]])
+    deltaU = (u[1:, :] - u[:-1, :]) / h
     Q = np.identity(modelData.A[0].shape[0])
+    R = np.array([[1e-4]])
+    S = np.array([[0.0]])
     return np.trapz(np.einsum('ij,kj,ik->i', deltaZ, Q, deltaZ), dx=h) + \
-           np.trapz(np.einsum('ij,kj,ik->i', u, 1.0, u), dx=h) + \
-           np.trapz(np.einsum('ij,kj,ik->i', deltaU, 1.0, deltaU), dx=h)
+           np.trapz(np.einsum('ij,kj,ik->i', u, R, u), dx=h) + \
+           np.trapz(np.einsum('ij,kj,ik->i', deltaU, S, deltaU), dx=h)
 
 
 def mapUToIu(u, uGrid):
@@ -75,8 +77,6 @@ def createSurrogateModel(modelData, data):
     yMean = list()
     yShift = list()
     for i in range(nSys):
-        # for j in range(Y[i].shape[0]):
-        #     Y[i][j, :] -= u[i][0] * modelData.yC[:, 0]
         yMean.append(np.zeros([2 * modelData.of.mesh.nc, 1], dtype=float))
         yMean[-1][:, 0] = np.mean(Y[i], axis=0)
         for j in range(Y[i].shape[0]):
@@ -84,7 +84,14 @@ def createSurrogateModel(modelData, data):
         yShift.append(np.zeros([2 * modelData.of.mesh.nc, 1], dtype=float))
         yShift[-1][:, 0] = modelData.yBase[:, 0] - yMean[i][:, 0]
 
-        U, s, Vt = sp.linalg.svd(Y[i].T, full_matrices=False)
+        D, V = sp.linalg.eig(Y[i] @ M2D @ Y[i].transpose())
+        D = np.abs(D)
+        I = np.argsort(-D)
+        s = np.nan_to_num(np.sqrt(D[I]), nan=1e-12)
+        U = Y[i].transpose() @ V[:, I[:modelData.nModes]]
+        for j in range(U.shape[1]):
+            U[:, j] /= s[j]
+
         print('POD model {} with {} modes contains {:.2f} % of information'.format(i, modelData.nModes, 100.0 * np.sum(
             s[:modelData.nModes]) / np.sum(s)))
 
@@ -93,11 +100,13 @@ def createSurrogateModel(modelData, data):
         Psi[-1][:, 1:] = U[:, :modelData.nModes]
 
         for j in range(modelData.nModes):
-            Psi[i][:, 0] -= (yShift[i][:, 0] @ M2D @ Psi[i][:, j + 1]) * Psi[i][:, j + 1]
-        Psi[i][:, 0] /= np.linalg.norm(Psi[i][:, 0])
+            Psi[i][:, 0] -= (yShift[i].transpose() @ M2D @ Psi[i][:, j + 1]) * Psi[i][:, j + 1]
+        Psi[i][:, 0] /= np.sqrt(Psi[i][:, 0].transpose() @ M2D @ Psi[i][:, 0])
 
         dyMean.append(modelData.of.calcGradient(yMean[i].T))
         dPsi.append(modelData.of.calcGradient(Psi[i].T))
+
+        # modelData.of.writeField(Psi[i].T, 'U', iStart=200 + i * (modelData.nModes + 1))
 
     A, B, C = list(), list(), list()
     indices = np.asarray(range(0, 2 * modelData.of.mesh.nc, 2))

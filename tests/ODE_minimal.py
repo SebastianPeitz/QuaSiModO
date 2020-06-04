@@ -48,13 +48,13 @@ uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence=[2.0], u=uTr
 dataSet.createData(model=model, y0=y0, u=uTrain)
 
 # prepare data according to the desired reduction scheme
-data = dataSet.prepareData(model, method='Y', rawData=dataSet.rawData, nLag=nLag, nDelay=0)
+data = dataSet.prepareData(model, method='Y', rawData=dataSet.rawData, nLag=nLag, nDelay=2)
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Surrogate modeling
 # -------------------------------------------------------------------------------------------------------------------- #
 
-surrogate = ClassSurrogateModel('EDMD.py', uGrid=model.uGrid, h=nLag * model.h, dimZ=model.dimZ, z0=y0, nDelay=0,
+surrogate = ClassSurrogateModel('EDMD.py', uGrid=model.uGrid, h=nLag * model.h, dimZ=model.dimZ, z0=y0, nDelay=2,
                                 nLag=nLag, nMonomials=nMonomials, epsUpdate=0.05)
 surrogate.createROM(data)
 

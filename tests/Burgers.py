@@ -4,6 +4,7 @@ from visualization import *
 # -------------------------------------------------------------------------------------------------------------------- #
 # Set parameters
 # -------------------------------------------------------------------------------------------------------------------- #
+
 T = 60.0
 h = 0.005
 
@@ -59,7 +60,8 @@ plot(u={'t': dataSet.rawData.t[0], 'u': dataSet.rawData.u[0], 'iplot': 0},
 # Surrogate modeling
 # -------------------------------------------------------------------------------------------------------------------- #
 
-surrogate = ClassSurrogateModel('EDMD.py', uGrid=model.uGrid, h=nLag * model.h, dimZ=model.dimZ, z0=z0, nLag=nLag, nMonomials=nMonomials, epsUpdate=0.05)
+surrogate = ClassSurrogateModel('EDMD.py', uGrid=model.uGrid, h=nLag * model.h, dimZ=model.dimZ, z0=z0, nLag=nLag,
+                                nMonomials=nMonomials, epsUpdate=0.05)
 surrogate.createROM(data)
 
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -80,7 +82,7 @@ iRef = [0, 1, 2, 3]
 reference = ClassReferenceTrajectory(model, T=TRef, zRef=zRef, iRef=iRef)
 
 # Create class for the MPC problem
-MPC = ClassMPC(np=5, nc=1, typeOpt='continuous', scipyMinimizeMethod='SLSQP')  #, 'trust-constr', 'L-BFGS-B')
+MPC = ClassMPC(np=5, nc=1, typeOpt='continuous', scipyMinimizeMethod='trust-constr')  #, 'SLSQP', 'L-BFGS-B')
 
 # Weights for the objective function
 Q = [1.0, 1.0, 1.0, 1.0]  # reference tracking: (z - deltaZ)^T * Q * (z - deltaZ)
@@ -92,7 +94,7 @@ S = [0.0]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 # -------------------------------------------------------------------------------------------------------------------- #
 
 # 1) Surrogate model, continuous input obtained via relaxation of the integer input in uGrid
-resultCont = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S)
+resultCont = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S, updateSurrogate=True)
 
 plot(z={'t': resultCont.t, 'z': resultCont.z, 'reference': reference, 'iplot': 0},
      u={'t': resultCont.t, 'u': resultCont.u, 'iplot': 1},
@@ -102,7 +104,7 @@ plot(y={'t': resultCont.t[::100], 'y': resultCont.y[::100, :], 'type': 'Surface'
 
 # 2) Surrogate model, integer control computed via relaxation and sum up rounding
 MPC.typeOpt = 'SUR'
-result_SUR = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S)
+result_SUR = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S, updateSurrogate=True)
 
 plot(z={'t': result_SUR.t, 'z': result_SUR.z, 'reference': reference, 'iplot': 0},
      u={'t': result_SUR.t, 'u': result_SUR.u, 'iplot': 1},

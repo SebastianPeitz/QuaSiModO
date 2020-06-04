@@ -63,7 +63,7 @@ class ClassOpenFOAM:
     mesh = ClassOFMesh()
 
     def __init__(self, pathProblem, obs, pathOut, nProc=1, nInputs=1, dimInputs=1, iInputs=[0], h=0.01, Re=100.0,
-                 dimSpace=2):
+                 dimSpace=2, BCWrite='0'):
 
         self.obs = obs
 
@@ -86,6 +86,7 @@ class ClassOpenFOAM:
         self.dimInputs = dimInputs
         self.iInputs = iInputs
         self.dimSpace = dimSpace
+        self.BCWrite = BCWrite
 
         if h is not None:
             self.h = h
@@ -157,7 +158,7 @@ class ClassOpenFOAM:
         else:
             sampleFile = 'U'
 
-        with open(self.pathOFOut + '0/' + sampleFile) as fileObject:
+        with open(self.pathOFOut + self.BCWrite + '/' + sampleFile) as fileObject:
             for line in fileObject:
                 i += 1
                 if line.find('boundaryField') >= 0:
@@ -203,7 +204,7 @@ class ClassOpenFOAM:
         linesP = list()
         flagWrite = True
         i = 0
-        with open(self.pathOFOut + '0/p') as fileObject:
+        with open(self.pathOFOut + self.BCWrite + '/p') as fileObject:
             for line in fileObject:
                 i += 1
                 if line.find('boundaryField') >= 0:
@@ -239,8 +240,6 @@ class ClassOpenFOAM:
         self.writeRunGrad(dimY, 99 + nt)
         currentDir = os.getcwd()
         os.chdir(self.pathOFOut)
-        # os.system('bash -c "export LD_LIBRARY_PATH={}; {}runGrad > {}/logGrad"'.format(self.pathLib, self.pathOFOut,
-        #                                                                                self.pathOFOut))
         os.system('bash -c "export LD_LIBRARY_PATH={}; ./runGrad > logGrad"'.format(self.pathLib))
         os.chdir(currentDir)
 
@@ -260,7 +259,6 @@ class ClassOpenFOAM:
 
         fout = open(self.pathOFOut + 'runGrad', 'w')
         fout.write('source ' + self.pathOF + 'etc/bashrc\n')
-        # strOut = 'postProcess -dict ' + self.pathOFOut + 'dictGrad -fields "('
         strOut = 'postProcess -dict dictGrad -fields "('
         for i in range(dimY):
             strOut += 'Y{} '.format(i)
