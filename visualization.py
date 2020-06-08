@@ -116,9 +116,14 @@ def plot(showPlot=True, fOut=None, **kwargs):
 
         ni[ip] += 1
 
+        if len(plots[s].y.shape) == 1:
+            y = np.zeros([plots[s].y.shape[0], 1], dtype=float)
+            y[:, 0] = plots[s].y
+            plots[s].y = y
+
         for i in range(plots[s].y.shape[1]):
             if plots[s].type == 'Lines':
-                iCol = float(i) / float(np.maximum(plots[ip].y.shape[1] - 1, 1))
+                iCol = float(i) / float(np.maximum(plots[s].y.shape[1] - 1, 1))
                 if plots[s].y.shape[1] > 1:
                     labelString = plots[s].label + str(i)
                 else:
@@ -132,10 +137,11 @@ def plot(showPlot=True, fOut=None, **kwargs):
                     axes[ip].plot(plots[s].t, plots[s].y[:, i], color=plt.cm.RdYlBu(iCol), linestyle=lineStyle,
                                   linewidth=2, marker=plots[s].marker, markersize=plots[ip].markerSize,
                                   label=labelString)
-                    if plots[ip].flagRef:
+                    if plots[s].flagRef:
                         for j in range(len(plots[s].ref.iRef)):
                             iCol = float(plots[s].ref.iRef[j]) / float(np.maximum(plots[s].y.shape[1] - 1, 1))
-                            axes[ip].plot(plots[s].t, plots[s].ref.z[:len(plots[s].t), plots[s].ref.iRef[j]].toarray(),
+                            # axes[ip].plot(plots[s].t, plots[s].ref.z[:len(plots[s].t), plots[s].ref.iRef[j]].toarray(),
+                            axes[ip].plot(plots[s].t, plots[s].ref.z[:len(plots[s].t), plots[s].ref.iRef[j]],
                                           color=plt.cm.RdYlBu(iCol), linestyle=(0, (3, 5, 1, 5, 1, 5)), linewidth=2,
                                           label=labelString)
             elif plots[s].type == 'Surface':

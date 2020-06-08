@@ -168,6 +168,17 @@ plot(z={'t': result_SurrogateSUR.t, 'z': result_SurrogateSUR.z, 'reference': ref
      alpha={'t': result_SurrogateSUR.t, 'alpha': result_SurrogateSUR.alpha, 'iplot': 4},
      omega={'t': result_SurrogateSUR.t, 'omega': result_SurrogateSUR.omega, 'iplot': 5})
 
+# 6) Surrogate model, integer control computed via relaxation and sum up rounding
+MPC.typeOpt = 'SUR_coarse'
+result_SurrogateSURc = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S)
+
+plot(z={'t': result_SurrogateSURc.t, 'z': result_SurrogateSURc.z, 'reference': reference, 'iplot': 0},
+     u={'t': result_SurrogateSURc.t, 'u': result_SurrogateSURc.u, 'iplot': 1},
+     J={'t': result_SurrogateSURc.t, 'J': result_SurrogateSURc.J, 'iplot': 2},
+     nFev={'t': result_SurrogateSURc.t, 'nFev': result_SurrogateSURc.nFev, 'iplot': 3},
+     alpha={'t': result_SurrogateSURc.t, 'alpha': result_SurrogateSURc.alpha, 'iplot': 4},
+     omega={'t': result_SurrogateSURc.t, 'omega': result_SurrogateSURc.omega, 'iplot': 5})
+
 # -------------------------------------------------------------------------------------------------------------------- #
 # Store the final result to a .mat file
 # -------------------------------------------------------------------------------------------------------------------- #

@@ -18551,7 +18551,6 @@ boundaryField
         {
             file            "$FOAM_CASE/control0";
         }
-        value           uniform (0 0 0);
     }
     outlet
     {

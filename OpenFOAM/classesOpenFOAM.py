@@ -137,8 +137,9 @@ class ClassOpenFOAM:
                 os.system('bash -c "export LD_LIBRARY_PATH=' + pathLibraries + '; ' + self.pathOFOut + 'runDP ' +
                           self.pathOFOut + ' > ' + self.pathOFOut + 'logDP"')
 
-    def createOrUpdateModel(self, uMin, uMax, hWrite, dimZ=None, Re=None, iObs=None, y0=None, typeUGrid=None, nGridU=1):
-        model = ClassModel(self, uMin, uMax, hWrite, dimZ, Re, iObs, y0, typeUGrid, nGridU, self.obs.writeY)
+    def createOrUpdateModel(self, uMin, uMax, hWrite, dimZ=None, Re=None, iObs=None, y0=None, typeUGrid=None, nGridU=1,
+                            uGrid=None):
+        model = ClassModel(self, uMin, uMax, hWrite, dimZ, Re, iObs, y0, typeUGrid, nGridU, uGrid, self.obs.writeY)
         return model
 
     def createIC(self, y0):
@@ -148,6 +149,8 @@ class ClassOpenFOAM:
 
     def writeField(self, Y, name, iStart=200):
 
+        if len(Y.shape) == 1:
+            Y = np.array([Y])
         dimY = int(round(Y.shape[1] / self.mesh.nc))
 
         linesP = list()
@@ -630,7 +633,7 @@ class ClassOpenFOAM:
 
                 # min(myList, key=lambda x: abs(x - myNumber))
                 j = min(range(len(t)), key=lambda i: abs(t[i] - tt))
-                minVal = t[j] - tt
+                minVal = abs(t[j] - tt)
 
                 if minVal < 1e-5:
                     if self.mesh.nSkipField is None:

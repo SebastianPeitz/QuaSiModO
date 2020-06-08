@@ -6,7 +6,7 @@ def simulateModel(y0, t0, u, model):
     nt = u.shape[0]
     T = t0 + (nt - 1) * model.h
 
-    print('Solving model via OpenFOAM from t = {} to t = {}'.format(t0, T))
+    print('Solving model via OpenFOAM from t = {:.2f} to t = {:.2f}'.format(t0, T))
 
     if t0 < 1e-3:
         model.OF.cleanCase()

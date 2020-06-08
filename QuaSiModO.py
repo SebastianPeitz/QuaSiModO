@@ -35,6 +35,8 @@ class ClassModel:
     8) dimZ: dimension of the observable
     9) typeUGrid: type of control grid that is created from uMin and uMax in the routine createControlGrid
     10) nGridU: number of sections the control input is divided into between uMin and uMax (component-wise)
+    11) uGrid: pass the grid of controls directly to the model
+    12) writeY: flag whether the full state should be written or not
 
     Author: Sebastian Peitz, Paderborn University, speitz@math.upb.de
 
@@ -56,7 +58,7 @@ class ClassModel:
     typeUGrid = []
 
     def __init__(self, modelFileOrClass, uMin, uMax, h, dimZ, Re=None, iObs=None, y0=None,
-                 typeUGrid=None, nGridU=1, writeY=True):
+                 typeUGrid=None, nGridU=1, uGrid=None, writeY=True):
 
         print('Creating ClassModel with uMin = ' + str(uMin) + '; uMax = ' + str(uMax) + '; h = ' + str(h) +
               '; dimZ = ' + str(dimZ) + '; Re = ' + str(Re) + '; iObs = ' + str(iObs) + '; y0 = ' + str(y0) +
@@ -69,8 +71,14 @@ class ClassModel:
         self.uMin = np.array(uMin)
         self.uMax = np.array(uMax)
         self.dimU = len(uMin)
-        if typeUGrid is not None:
-            self.createControlGrid(self.uMin, self.uMax, typeUGrid, nGridU)
+
+        if uGrid is not None:
+            self.nU = uGrid.shape[0]
+            self.uC = uGrid[0]
+            self.uGrid = uGrid
+        else:
+            if typeUGrid is not None:
+                self.createControlGrid(self.uMin, self.uMax, typeUGrid, nGridU)
 
         if y0 is not None:
             self.y0 = y0
@@ -485,7 +493,7 @@ class ClassControlDataSet:
         if savePath is not None:
             self.rawData.save(savePath=savePath)
 
-    def prepareData(self, model, method='None', rawData=None, nLag=1, nDelay=0, typeDer='CD'):
+    def prepareData(self, model, method='None', rawData=None, nLag=1, nDelay=0, typeDer='FD'):
         """
         Takes in the rawData (either passed directly or stored in the class) and creates structured data according to
         the selected method. For each of the (model.nU) entries in the control grid, a list entry is created:
@@ -567,7 +575,8 @@ class ClassControlDataSet:
                             if flagDXU:
                                 pass
                     else:
-                        if not any(rawData.iu[i][j + 1: j + (1 + nDelay) * nLag, 0] != rawData.iu[i][j, 0]):
+                        # if not any(rawData.iu[i][j + 1: j + (1 + nDelay) * nLag, 0] != rawData.iu[i][j, 0]):
+                        if not any(rawData.iu[i][j + 1: j + nLag, 0] != rawData.iu[i][j, 0]):
                             X[rawData.iu[i][j, 0]].append(self.stackZ(rawData.z[i][j: j + self.nDelay * nLag + 1, :], nLag))
                             Y[rawData.iu[i][j, 0]].append(self.stackZ(rawData.z[i][j + nLag: j + (self.nDelay + 1) * nLag + 1, :], nLag))
 
@@ -898,8 +907,8 @@ class ClassReferenceTrajectory:
                 self.z[:, self.iRef[i]] = zRef[i]
         else:
             if zRef.shape[0] == 1:
-                for i in range(zRef.shape[0]):
-                    self.z[:, self.iRef[i]] = zRef[i]
+                for i in range(zRef.shape[1]):
+                    self.z[:, self.iRef[i]] = zRef[0, i]
             elif zRef.shape[0] != n:
                 print('Error in "ClassReferenceTrajectory".__init__": number of time steps of zRef has to be either 1 '
                       'or "T / model.h + 1"')
@@ -912,7 +921,7 @@ class ClassReferenceTrajectory:
                     for i in range(len(self.iRef)):
                         self.z[:, self.iRef[i]] = zRef[:, i]
 
-        self.z = sparse.csr_matrix(self.z, shape=[n, model.dimZ])
+        # self.z = sparse.csr_matrix(self.z, shape=[n, model.dimZ])
 
 
 class ClassMPC:
@@ -973,8 +982,8 @@ class ClassMPC:
 
         self.calcJ = self.calcJInternal
 
-    def run(self, model, reference, surrogateModel=None, y0=None, z0=None, T=None, Q=[1.0], R=[0.0], S=[0.0],
-            savePath=None, updateSurrogate=False):
+    def run(self, model, reference, surrogateModel=None, y0=None, z0=None, T=None, Q=[1.0], L=[0.0], R=[0.0], S=[0.0],
+            savePath=None, updateSurrogate=False, trySymmetricIC=False):
         """ClassMPC.run
 
         This function solves the MPC problem over the time interval [0, T] by sequentially solving the following
@@ -995,11 +1004,13 @@ class ClassMPC:
            computable via z0 = model.observable(y0)
         6) T: Final time of the MPC problem. If T is greater than the length of the reference trajectory, it is
            automatically shortened and a warning is given
-        7 - 9) Q, R, S (type matrices (np.array) of size (dimZ, dimZ) for Q and (dimU, dimU) for R, and S): Weighting of
-               the different terms in the objective function
-        10) savePath (type string): If provided, then the results are stored in the prescribed file after each iteration
-        11) updateSurrogate (default: False): If true AND "createSurrogateModel(modelData, data)" is given in the
+        7 - 10) Q, L, R, S (type matrices (np.array) of size (dimZ, dimZ) for Q, (dimZ, 1) for L, and (dimU, dimU) for
+               R, and S): Weighting of the different terms in the objective function
+        11) savePath (type string): If provided, then the results are stored in the prescribed file after each iteration
+        12) updateSurrogate (default: False): If true AND "createSurrogateModel(modelData, data)" is given in the
             surrogate model file, then the model is updated in each MPC loop
+        13) trySymmetricIC (default: False): For problems with symmetries, a second optimization problem can be solved
+            where the initial guess is multiplied by -1. The winner is then selected
 
         Output
         1) result (type ClassResult)
@@ -1025,9 +1036,11 @@ class ClassMPC:
 
         self.dimZ = model.dimZ
 
-        self.Q = transformToMatrix(np.asarray(Q), model.dimZ)
-        self.R = transformToMatrix(np.asarray(R), model.dimU)
-        self.S = transformToMatrix(np.asarray(S), model.dimU)
+        self.Q = transformToMatrix(Q, model.dimZ)
+        self.L = transformToVector(L, model.dimZ)
+        self.R = transformToMatrix(R, model.dimU)
+        self.S = transformToMatrix(S, model.dimU)
+        self.trySymmetricIC = trySymmetricIC
 
         nt = int(np.round(T / model.h))
 
@@ -1085,7 +1098,8 @@ class ClassMPC:
                 time = time + float(surrogateModel.nDelay * surrogateModel.hShM) * model.h
                 iTime = iTime + surrogateModel.nDelay * surrogateModel.hShM
                 z0 = stackZ0(zInit, surrogateModel)
-                y0 = yInit[iTime, :]
+                if not (not yInit):
+                    y0 = yInit[iTime, :]
 
                 result.add(0, model.writeY, surrogateModel.nDelay * surrogateModel.hShM, yInit, zInit, tInit,
                            uInit, iuInit, 0.0, 1)
@@ -1094,6 +1108,8 @@ class ClassMPC:
 
             # while time < T - self.np * model.h:
             while iTime <= nt - self.nc * surrogateModel.hShM:
+
+                print('t = {:.2f} sec: Solving optimization problem'.format(time))
 
                 # Solve optimization problem
                 if self.typeOpt == 'combinatorial':
@@ -1118,6 +1134,18 @@ class ClassMPC:
                 else:
                     zRef = reference.z[iTime: iTime + surrogateModel.hShM * (self.nch * self.np) + 1: surrogateModel.hShM, :]
                     JOpt, alphaOpt, nFev = self.solveOptSurrogate(surrogateModel, zRef, alpha0, z0, time)
+                    if self.trySymmetricIC:
+                        equalPercentage = (1.0 / float(surrogateModel.nU))
+                        alpha02 = equalPercentage * np.ones([self.np, surrogateModel.nU - 1], dtype=float) - \
+                            (alpha0[i, :] - equalPercentage)
+                        print('- Second attempt with inverted initial guess alpha = {}'.format(alpha02))
+                        JOpt2, alphaOpt2, nFev2 = self.solveOptSurrogate(surrogateModel, zRef, alpha02, z0, time)
+                        if JOpt2 < JOpt:
+                            print('  Second attempt supersedes the first one: {} < {}'.format(JOpt2, JOpt))
+                            JOpt, alphaOpt, nFev = JOpt2, alphaOpt2, nFev2
+                        else:
+                            print('- Second attempt is worse than the first one: {} > {}'.format(JOpt2, JOpt))
+
                     if self.typeOpt == 'SUR':
 
                         alphaOpt2 = alphaOpt[:self.nc, :]
@@ -1163,12 +1191,17 @@ class ClassMPC:
                     alpha0[:-1, :] = alphaOpt[1:, :]
                     alpha0[-1, :] = alphaOpt[-1, :]
 
-                print('t = {:.2f} sec; uOpt = {}; JOpt = {}; nFev = {}'.format(time, uOpt2[0, :], JOpt, nFev))
-
                 # Apply control to plant
                 uOpt = uOpt2[:self.nch * self.nc * surrogateModel.hShM + 1, :]
                 iuOpt = iuOpt2[:self.nch * self.nc * surrogateModel.hShM + 1, :]
                 [yOpt, zOpt, tOpt, model] = model.integrate(y0, uOpt, time)
+
+                if surrogateModel.calcJ is None:
+                    deltaZ = zOpt - zRef[:zOpt.shape[0], :]
+                    dZ = np.sum(np.diag(deltaZ @ self.Q @ deltaZ.T))
+                    print('- Opt solved; uOpt = {}; JOpt = {}; JReal = {}; nFev = {}'.format(uOpt2[0, :], JOpt, dZ, nFev))
+                else:
+                    print('- Opt solved; uOpt = {}; JOpt = {}; nFev = {}'.format(uOpt2[0, :], JOpt, nFev))
 
                 # Store data to output array
                 result.add(iTime, model.writeY, self.nch * self.nc * surrogateModel.hShM, yOpt, zOpt, tOpt, uOpt,
@@ -1247,7 +1280,7 @@ class ClassMPC:
 
                 elif self.typeOpt == 'continuous':
                     zRef = reference.z[iTime: iTime + self.nch * self.np + 1, :]
-                    JOpt, uOpt, nFev = self.solveOptFull(model, zRef, u0, y0, time, iTime)
+                    JOpt, uOpt, nFev = self.solveOptFull(model, zRef, u0, y0, time)
 
                 iuOpt = mapUToIu(uOpt, model.uGrid)
 
@@ -1300,10 +1333,10 @@ class ClassMPC:
 
         return self.calcJ(z, zRef, surrogateModel.mapAlphaToU(alpha), surrogateModel.h, surrogateModel.modelData)
 
-    def solveOptFull(self, model, reference, u0, y0, t0, it):
+    def solveOptFull(self, model, reference, u0, y0, t0):
 
         def obj(uu):
-            return self.objectiveFull(model, reference, uu.reshape((self.np, model.dimU)), y0, t0, it)
+            return self.objectiveFull(model, reference, uu.reshape((self.np, model.dimU)), y0, t0)
 
         u0 = u0.reshape((model.dimU * self.np, 1))
 
@@ -1326,9 +1359,11 @@ class ClassMPC:
     def calcJInternal(self, z, zRef, u, h, modelData=None):
         deltaZ = z[:, :self.dimZ] - zRef
         deltaU = (u[1:] - u[:-1]) / h
-        return np.trapz(np.einsum('ij,kj,ik->i', deltaZ, self.Q, deltaZ), dx=h) + \
-               np.trapz(np.einsum('ij,kj,ik->i', u, self.R, u), dx=h) + \
-               np.trapz(np.einsum('ij,kj,ik->i', deltaU, self.S, deltaU), dx=h)
+        return np.sum(np.diag(deltaZ @ self.Q @ deltaZ.T) + (deltaZ @ self.L)) + np.sum(np.diag(u @ self.R @ u.T)) + \
+               np.sum(np.diag(deltaU @ self.S @ deltaU.T))
+        # return np.trapz(np.einsum('ij,kj,ik->i', deltaZ, self.Q, deltaZ), dx=h) + \
+        #        np.trapz(np.einsum('ij,kj,ik->i', u, self.R, u), dx=h) + \
+        #        np.trapz(np.einsum('ij,kj,ik->i', deltaU, self.S, deltaU), dx=h)
 
     def repeatControl(self, u, nch=None):
         if nch is None:
@@ -1362,22 +1397,25 @@ class ClassResult:
             self.omega = np.zeros([nT, nU], dtype=float)
 
     def add(self, iTime, writeY, nWrite, y, z, t, u, iu, J, nFev, alpha=None, omega=None):
+        iEnd = min(iTime + nWrite, self.t.shape[0])
+        nWrite -= (iTime + nWrite) - iEnd
+
         if writeY:
             if iTime == 0:
                 dimY = y.shape[1]
                 self.y = np.zeros([self.t.shape[0], dimY], dtype=float)
-            self.y[iTime: iTime + nWrite, :] = y[:nWrite, :]
+            self.y[iTime: iEnd, :] = y[:nWrite, :]
 
-        self.z[iTime: iTime + nWrite, :] = z[:nWrite, :]
-        self.t[iTime: iTime + nWrite, 0] = t[:nWrite]
-        self.u[iTime: iTime + nWrite, :] = u[:nWrite, :]
-        self.iu[iTime: iTime + nWrite, 0] = iu[:nWrite, 0]
-        self.J[iTime: iTime + nWrite, :] = J
-        self.nFev[iTime: iTime + nWrite, :] = nFev
+        self.z[iTime: iEnd, :] = z[:nWrite, :]
+        self.t[iTime: iEnd, 0] = t[:nWrite]
+        self.u[iTime: iEnd, :] = u[:nWrite, :]
+        self.iu[iTime: iEnd, 0] = iu[:nWrite, 0]
+        self.J[iTime: iEnd, :] = J
+        self.nFev[iTime: iEnd, :] = nFev
         if alpha is not None:
-            self.alpha[iTime: iTime + nWrite, :] = alpha[:nWrite, :]
+            self.alpha[iTime: iEnd, :] = alpha[:nWrite, :]
         if omega is not None:
-            self.omega[iTime: iTime + nWrite, :] = omega[:nWrite, :]
+            self.omega[iTime: iEnd, :] = omega[:nWrite, :]
 
     def save(self, savePath):
         np.savez(savePath, y=self.y, z=self.z, u=self.u, J=self.J, t=self.t, nFev=self.nFev, iu=self.iu,
@@ -1479,7 +1517,7 @@ def mapUToIu(u, uGrid):
     iu = -np.ones([u.shape[0], 1], dtype=int)
     for i in range(u.shape[0]):
         for j in range(uGrid.shape[0]):
-            if all(u[i, :] == uGrid[j, :]):
+            if np.linalg.norm(u[i, :] - uGrid[j, :]) < 1e-4 :  #all(u[i, :] == uGrid[j, :]):
                 iu[i, 0] = j
                 break
 
@@ -1487,6 +1525,10 @@ def mapUToIu(u, uGrid):
 
 
 def transformToMatrix(A, dim):
+    if type(A) == type(sparse.spdiags(1.0, [0], 1, 1)):
+        return A
+
+    A = np.asarray(A)
     if A.size == 1:
         B = np.identity(dim, dtype=float)
         for i in range(dim):
@@ -1504,11 +1546,41 @@ def transformToMatrix(A, dim):
         else:
             if (A.shape[0] == A.shape[1]) and (A.shape[0] == dim):
                 B = A
+            elif (A.shape[0] == dim) and (A.shape[1] == 1):
+                B = np.diagflat(A)
+            elif (A.shape[0] == 1) and (A.shape[1] == dim):
+                B = np.diagflat(A)
             else:
                 print('Error in "ClassReferenceTrajectory.transformToMatrix": please specify Q, R and S as '
                       'scalars, as arrays of length dimZ (for Q) or dimU (for R and S) containing the diagonal '
                       'entries of Q, R, and S, respectively, or as square matrices with dimension (dimZ x dimZ)'
                       '(for Q) or (dimU x dimU) (for R and S) ')
+                exit(1)
+
+    return B
+
+
+def transformToVector(A, dim):
+    A = np.asarray(A)
+    if A.size == 1:
+        B = A * np.ones([dim, 1], dtype=float)
+    else:
+        if A.ndim == 1:
+            if A.shape[0] == dim:
+                B = np.zeros([dim, 1], dtype=float)
+                B[:, 0] = A
+            else:
+                print('Error in "ClassReferenceTrajectory.transformToVector": please specify L as a '
+                      'scalar or array of length dimZ ')
+                exit(1)
+        else:
+            if (A.shape[0] == dim) and (A.shape[1] == 1):
+                B = A
+            elif (A.shape[0] == 1) and (A.shape[1] == 0):
+                B = A.T
+            else:
+                print('Error in "ClassReferenceTrajectory.transformToVector": please specify L as a '
+                      'scalar or array of length dimZ ')
                 exit(1)
 
     return B

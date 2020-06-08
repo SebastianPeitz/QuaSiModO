@@ -5,11 +5,9 @@ from visualization import *
 # OpenFOAM: Define model
 # -------------------------------------------------------------------------------------------------------------------- #
 pathProblem = 'OpenFOAM/problems/cylinder'
-pathOut = 'tests/results/cylinderPOD'
+pathOut = 'tests/results/cylinder'
 pathData = pathOut + '/data'
-pathROM = pathOut + '/ROM'
 nProc = 1
-BCWrite = 'BCWrite'
 
 nInputs = 1
 dimInputs = 1
@@ -19,7 +17,12 @@ iInputs = [0]
 # OpenFOAM: Define what to observe
 # -------------------------------------------------------------------------------------------------------------------- #
 
-nModes = 20
+writeGrad = False
+writeY = False
+
+forceCoeffsPatches = ['cylinder']
+ARef = 1.0
+lRef = 1.0
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Set parameters
@@ -29,22 +32,27 @@ hFOAM = 0.01
 dimSpace = 2
 
 T = 60.0
-h = 0.1
+h = 0.05
 
 uMin = [-2.0]
 uMax = [2.0]
 nGridU = 2  # number of parts the grid is split into (--> uGrid = [-2, 0, 2])
 
-Ttrain = 200.0  # Time for the simulation in the traing data generation
+dimZ = 2
+
+Ttrain = 100.0  # Time for the simulation in the traing data generation
+nLag = 2  # Lag time for EDMD
+nDelay = 4  # Number of delays for modeling
+nMonomials = 0  # Max order of monomials for EDMD
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Model creation
 # -------------------------------------------------------------------------------------------------------------------- #
 
-obs = ClassObservable(flagFullState=True)
+obs = ClassObservable(forceCoeffsPatches=forceCoeffsPatches, ARef=ARef, lRef=lRef, writeY=writeY, writeGrad=writeGrad)
 
-of = ClassOpenFOAM(pathProblem, obs, pathOut, nProc, nInputs, dimInputs, iInputs, h=hFOAM, Re=Re, dimSpace=dimSpace, BCWrite=BCWrite)
-model = of.createOrUpdateModel(uMin=uMin, uMax=uMax, hWrite=h, typeUGrid='cube', nGridU=nGridU)
+of = ClassOpenFOAM(pathProblem, obs, pathOut, nProc, nInputs, dimInputs, iInputs, h=hFOAM, Re=Re, dimSpace=dimSpace)
+model = of.createOrUpdateModel(uMin=uMin, uMax=uMax, hWrite=h, dimZ=dimZ, typeUGrid='cube', nGridU=nGridU)
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Data collection
@@ -54,8 +62,7 @@ model = of.createOrUpdateModel(uMin=uMin, uMax=uMax, hWrite=h, typeUGrid='cube',
 dataSet = ClassControlDataSet(h=model.h, T=Ttrain)
 
 # Create a sequence of controls
-uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=5, nhMax=20)
-# uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence=[0.0], u=uTrain, iu=iuTrain)
+uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=2, nhMax=20)
 
 # Create a data set (and save it to an npz file)
 if os.path.exists(pathData + '.npz'):
@@ -63,79 +70,32 @@ if os.path.exists(pathData + '.npz'):
 else:
     dataSet.createData(model=model, u=uTrain, savePath=pathData)
 
-# plot data
-t = np.linspace(0.0, Ttrain, uTrain[0].shape[0])
-plot(u0={'t': dataSet.rawData.t[0], 'u0': dataSet.rawData.u[0], 'iplot': 0})
-
 # prepare data according to the desired reduction scheme
-data = dataSet.prepareData(model, method='', rawData=dataSet.rawData)
-
-model.dimZ = dataSet.dimZ
+data = dataSet.prepareData(model, method='Y', rawData=dataSet.rawData, nLag=nLag, nDelay=nDelay)
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Surrogate modeling
 # -------------------------------------------------------------------------------------------------------------------- #
 
-yBase, _ = of.readSolution(999.0, 999.0, 1.0, whichField='U')
-
 z0 = dataSet.rawData.z[0][0, :]
-surrogate = ClassSurrogateModel('POD.py', uGrid=model.uGrid, h=model.h, dimZ=z0.shape[0], z0=z0,
-                                yBase=yBase.T, nModes=nModes, of=of, Re=Re)
-if os.path.exists(pathROM):
-    surrogate.createROM(data, loadPath=pathROM)
-else:
-    surrogate.createROM(data, savePath=pathROM)
+surrogate = ClassSurrogateModel('EDMD.py', uGrid=model.uGrid, h=nLag * model.h, dimZ=model.dimZ, z0=z0, nDelay=nDelay,
+                                nLag=nLag, nMonomials=nMonomials, epsUpdate=0.05)
+surrogate.createROM(data)
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Compare surrogate model with full model
 # -------------------------------------------------------------------------------------------------------------------- #
 
-pathDataValidation = pathOut + '/dataValidation'
-
-# Create comparison data
-dataSetValidation = ClassControlDataSet(h=model.h, T=30.0)
-uValidate, iuValidate = None, None
-for i in range(surrogate.uGrid.shape[0]):
-    uValidate, iuValidate = dataSetValidation.createControlSequence(model, typeSequence=surrogate.uGrid[i, :],
-                                                                    u=uValidate, iu=iuValidate)
-
-# Create a data set (and save it to an npz file)
-if os.path.exists(pathDataValidation + '.npz'):
-    dataSetValidation.createData(loadPath=pathDataValidation)
-else:
-    dataSetValidation.createData(model=model, u=uValidate, savePath=pathDataValidation)
-
-# data = dataSetValidation.prepareData(model, method='', rawData=dataSetValidation.rawData)
-# if os.path.exists(pathROM):
-#     surrogate.createROM(data, loadPath=pathROM)
-# else:
-#     surrogate.createROM(data, savePath=pathROM)
-
 # Simulate surrogate model using every nLag'th entry of the training input
-zPod = list()
-alphaPod = list()
-alphaFull = list()
-
-for i in range(3):
-    alphaPod.append(np.zeros([dataSetValidation.rawData.z[i].shape[0], surrogate.modelData.A[i].shape[0]], dtype=float))
-    alphaFull.append(np.zeros([dataSetValidation.rawData.z[i].shape[0], surrogate.modelData.A[i].shape[0]], dtype=float))
-
-for i in range(3):
-    [zi, ti] = surrogate.integrateDiscreteInput(z0, 0.0, iuValidate[i])
-    zPod.append(zi)
-    for j in range(zPod[i].shape[0]):
-        alphaPod[i][j, :] = (zPod[i][j, :] - surrogate.modelData.yMean[i][:, 0]) @ surrogate.modelData.M2D @ \
-                            surrogate.modelData.Psi[i]
-        alphaFull[i][j, :] = (dataSetValidation.rawData.z[i][j, :] - surrogate.modelData.yMean[i][:, 0]) @ \
-                             surrogate.modelData.M2D @ surrogate.modelData.Psi[i]
+iuCoarse = dataSet.rawData.iu[1][nDelay * nLag::nLag]
+z0 = np.zeros([1, model.dimZ * (nDelay + 1)], dtype=float)
+for i in range(nDelay + 1):
+    z0[0, i * model.dimZ: (i + 1) * model.dimZ] = dataSet.rawData.z[1][(nDelay - i) * nLag, :]
+[z, tSurrogate] = surrogate.integrateDiscreteInput(z0, nLag * nDelay * h, iuCoarse)
 
 # Compare states and control
-plot(z0={'t': dataSetValidation.rawData.t[0], 'z0': alphaFull[0], 'iplot': 0},
-     z0r={'t': ti, 'z0r': alphaPod[0], 'iplot': 0},
-     z1={'t': dataSetValidation.rawData.t[1], 'z1': alphaFull[1], 'iplot': 1},
-     z1r={'t': ti, 'z1r': alphaPod[1], 'iplot': 1},
-     z2={'t': dataSetValidation.rawData.t[2], 'z2': alphaFull[2], 'iplot': 2},
-     z2r={'t': ti, 'z2r': alphaPod[2], 'iplot': 2})
+plot(z={'t': dataSet.rawData.t[1], 'z': dataSet.rawData.z[1][:, :model.dimZ], 'iplot': 0},
+     zr={'t': tSurrogate, 'zr': z[:, :model.dimZ], 'markerSize': 5, 'iplot': 0})
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # MPC
@@ -144,20 +104,26 @@ plot(z0={'t': dataSetValidation.rawData.t[0], 'z0': alphaFull[0], 'iplot': 0},
 # Define reference trajectory
 TRef = T + 2.0
 nRef = int(round(TRef / h)) + 1
-zRef = np.zeros([nRef, nModes + 1], dtype=float)
-iRef = np.array(range(nModes + 1))
+zRef = np.zeros([nRef, 1], dtype=float)
+
+iRef = [0]
 
 reference = ClassReferenceTrajectory(model, T=TRef, zRef=zRef, iRef=iRef)
 
 # Create class for the MPC problem
-MPC = ClassMPC(np=10, nc=1, typeOpt='continuous', scipyMinimizeMethod='SLSQP') # scipyMinimizeMethod='trust-constr'
+MPC = ClassMPC(np=20, nc=1, nch=1, typeOpt='continuous', scipyMinimizeMethod='SLSQP') # scipyMinimizeMethod='trust-constr'
+
+# Weights for the objective function
+Q = [1.0, 0.0]  # reference tracking: (z - deltaZ)^T * Q * (z - deltaZ)
+R = [0.0]  # control cost: u^T * R * u
+S = [5.0]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Solve different MPC problems (via "MPC.run") and plot the result
 # -------------------------------------------------------------------------------------------------------------------- #
 
 # 1) Surrogate model, continuous input obtained via relaxation of the integer input in uGrid
-resultCont = MPC.run(model, reference, surrogateModel=surrogate, T=T)
+resultCont = MPC.run(model, reference, surrogateModel=surrogate, T=T, Q=Q, R=R, S=S, updateSurrogate=True)
 
 plot(z={'t': resultCont.t, 'z': resultCont.z, 'reference': reference, 'iplot': 0},
      u={'t': resultCont.t, 'u': resultCont.u, 'iplot': 1},
@@ -166,8 +132,8 @@ plot(z={'t': resultCont.t, 'z': resultCont.z, 'reference': reference, 'iplot': 0
      fOut=pathOut + '/MPC1')
 
 # 2) Surrogate model, integer control computed via relaxation and sum up rounding
-MPC.typeOpt = 'SUR'
-result_SUR = MPC.run(model, reference, surrogateModel=surrogate, T=T)
+MPC.typeOpt = 'SUR_coarse'
+result_SUR = MPC.run(model, reference, surrogateModel=surrogate, T=T, Q=Q, R=R, S=S, updateSurrogate=True)
 
 plot(z={'t': result_SUR.t, 'z': result_SUR.z, 'reference': reference, 'iplot': 0},
      u={'t': result_SUR.t, 'u': result_SUR.u, 'iplot': 1},
