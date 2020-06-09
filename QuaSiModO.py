@@ -563,7 +563,7 @@ class ClassControlDataSet:
             if flagY or flagYU:
                 for j in range(rawData.z[i].shape[0] - (self.nDelay + 1) * nLag):
                     if self.nDelay == 0:
-                        if not any(rawData.iu[i][j + 1: j + nLag, 0] != rawData.iu[i][j, 0]):
+                        if not any(rawData.iu[i][j: j + nLag, 0] != rawData.iu[i][j, 0]):
                             X[rawData.iu[i][j, 0]].append(rawData.z[i][j, :])
                             Y[rawData.iu[i][j, 0]].append(rawData.z[i][j + nLag, :])
                             if flagDX:
@@ -576,7 +576,8 @@ class ClassControlDataSet:
                                 pass
                     else:
                         # if not any(rawData.iu[i][j + 1: j + (1 + nDelay) * nLag, 0] != rawData.iu[i][j, 0]):
-                        if not any(rawData.iu[i][j + 1: j + nLag, 0] != rawData.iu[i][j, 0]):
+                        if not any(rawData.iu[i][j + nDelay * nLag: j + (1 + nDelay) * nLag, 0] != rawData.iu[i][j + nDelay * nLag, 0]):
+                        # if not any(rawData.iu[i][j + 1: j + nLag, 0] != rawData.iu[i][j, 0]):
                             X[rawData.iu[i][j, 0]].append(self.stackZ(rawData.z[i][j: j + self.nDelay * nLag + 1, :], nLag))
                             Y[rawData.iu[i][j, 0]].append(self.stackZ(rawData.z[i][j + nLag: j + (self.nDelay + 1) * nLag + 1, :], nLag))
 
@@ -1098,7 +1099,7 @@ class ClassMPC:
                 time = time + float(surrogateModel.nDelay * surrogateModel.hShM) * model.h
                 iTime = iTime + surrogateModel.nDelay * surrogateModel.hShM
                 z0 = stackZ0(zInit, surrogateModel)
-                if not (not yInit):
+                if len(yInit) > 0:
                     y0 = yInit[iTime, :]
 
                 result.add(0, model.writeY, surrogateModel.nDelay * surrogateModel.hShM, yInit, zInit, tInit,
@@ -1135,11 +1136,8 @@ class ClassMPC:
                     zRef = reference.z[iTime: iTime + surrogateModel.hShM * (self.nch * self.np) + 1: surrogateModel.hShM, :]
                     JOpt, alphaOpt, nFev = self.solveOptSurrogate(surrogateModel, zRef, alpha0, z0, time)
                     if self.trySymmetricIC:
-                        equalPercentage = (1.0 / float(surrogateModel.nU))
-                        alpha02 = equalPercentage * np.ones([self.np, surrogateModel.nU - 1], dtype=float) - \
-                            (alpha0[i, :] - equalPercentage)
-                        print('- Second attempt with inverted initial guess alpha = {}'.format(alpha02))
-                        JOpt2, alphaOpt2, nFev2 = self.solveOptSurrogate(surrogateModel, zRef, alpha02, z0, time)
+                        print('- Second attempt with inverted initial guess')
+                        JOpt2, alphaOpt2, nFev2 = self.solveOptSurrogate(surrogateModel, zRef, reversePercentage(alphaOpt), z0, time)
                         if JOpt2 < JOpt:
                             print('  Second attempt supersedes the first one: {} < {}'.format(JOpt2, JOpt))
                             JOpt, alphaOpt, nFev = JOpt2, alphaOpt2, nFev2
@@ -1197,7 +1195,7 @@ class ClassMPC:
                 [yOpt, zOpt, tOpt, model] = model.integrate(y0, uOpt, time)
 
                 if surrogateModel.calcJ is None:
-                    deltaZ = zOpt - zRef[:zOpt.shape[0], :]
+                    deltaZ = zOpt - reference.z[iTime: iTime + surrogateModel.hShM * (self.nch * self.nc) + 1, :]
                     dZ = np.sum(np.diag(deltaZ @ self.Q @ deltaZ.T))
                     print('- Opt solved; uOpt = {}; JOpt = {}; JReal = {}; nFev = {}'.format(uOpt2[0, :], JOpt, dZ, nFev))
                 else:
@@ -1591,3 +1589,13 @@ def stackZ0(z, surrogateModel):
     for i in range(surrogateModel.nDelay + 1):
         z0[0, i * surrogateModel.dimZ: (i + 1) * surrogateModel.dimZ] = z[-(i * surrogateModel.hShM + 1), :]
     return z0
+
+
+def reversePercentage(alpha):
+    alphaOut = np.ones([alpha.shape[0], alpha.shape[1] + 1], dtype=float)
+    alphaOut[:, :-1] -= alpha
+    alphaOut[:, -1] -= (1.0 - np.sum(alpha, axis=1))
+    for ii in range(alphaOut.shape[0]):
+        alphaOut[ii, :] /= np.sum(alphaOut[ii, :])
+    alphaOut = alphaOut[:, :-1]
+    return alphaOut

@@ -79,7 +79,7 @@ data = dataSet.prepareData(model, method='Y', rawData=dataSet.rawData, nLag=nLag
 
 z0 = dataSet.rawData.z[0][0, :]
 surrogate = ClassSurrogateModel('EDMD.py', uGrid=model.uGrid, h=nLag * model.h, dimZ=model.dimZ, z0=z0, nDelay=nDelay,
-                                nLag=nLag, nMonomials=nMonomials, epsUpdate=0.05)
+                                nLag=nLag, nMonomials=nMonomials, epsUpdate=0.01)
 surrogate.createROM(data)
 
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -87,14 +87,14 @@ surrogate.createROM(data)
 # -------------------------------------------------------------------------------------------------------------------- #
 
 # Simulate surrogate model using every nLag'th entry of the training input
-iuCoarse = dataSet.rawData.iu[1][nDelay * nLag::nLag]
+iuCoarse = dataSet.rawData.iu[0][nDelay * nLag::nLag]
 z0 = np.zeros([1, model.dimZ * (nDelay + 1)], dtype=float)
 for i in range(nDelay + 1):
-    z0[0, i * model.dimZ: (i + 1) * model.dimZ] = dataSet.rawData.z[1][(nDelay - i) * nLag, :]
+    z0[0, i * model.dimZ: (i + 1) * model.dimZ] = dataSet.rawData.z[0][(nDelay - i) * nLag, :]
 [z, tSurrogate] = surrogate.integrateDiscreteInput(z0, nLag * nDelay * h, iuCoarse)
 
 # Compare states and control
-plot(z={'t': dataSet.rawData.t[1], 'z': dataSet.rawData.z[1][:, :model.dimZ], 'iplot': 0},
+plot(z={'t': dataSet.rawData.t[0], 'z': dataSet.rawData.z[0][:, :model.dimZ], 'iplot': 0},
      zr={'t': tSurrogate, 'zr': z[:, :model.dimZ], 'markerSize': 5, 'iplot': 0})
 
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -102,7 +102,7 @@ plot(z={'t': dataSet.rawData.t[1], 'z': dataSet.rawData.z[1][:, :model.dimZ], 'i
 # -------------------------------------------------------------------------------------------------------------------- #
 
 # Define reference trajectory
-TRef = T + 2.0
+TRef = T + 20.0
 nRef = int(round(TRef / h)) + 1
 zRef = np.zeros([nRef, 1], dtype=float)
 
@@ -111,19 +111,19 @@ iRef = [0]
 reference = ClassReferenceTrajectory(model, T=TRef, zRef=zRef, iRef=iRef)
 
 # Create class for the MPC problem
-MPC = ClassMPC(np=20, nc=1, nch=1, typeOpt='continuous', scipyMinimizeMethod='SLSQP') # scipyMinimizeMethod='trust-constr'
+MPC = ClassMPC(np=50, nc=1, nch=1, typeOpt='continuous', scipyMinimizeMethod='SLSQP') # scipyMinimizeMethod='trust-constr'
 
 # Weights for the objective function
-Q = [1.0, 0.0]  # reference tracking: (z - deltaZ)^T * Q * (z - deltaZ)
+Q = [1.0, 0.2]  # reference tracking: (z - deltaZ)^T * Q * (z - deltaZ)
 R = [0.0]  # control cost: u^T * R * u
-S = [5.0]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
+S = [0.1]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Solve different MPC problems (via "MPC.run") and plot the result
 # -------------------------------------------------------------------------------------------------------------------- #
 
 # 1) Surrogate model, continuous input obtained via relaxation of the integer input in uGrid
-resultCont = MPC.run(model, reference, surrogateModel=surrogate, T=T, Q=Q, R=R, S=S, updateSurrogate=True)
+resultCont = MPC.run(model, reference, surrogateModel=surrogate, T=T, Q=Q, R=R, S=S, updateSurrogate=True, trySymmetricIC=True)
 
 plot(z={'t': resultCont.t, 'z': resultCont.z, 'reference': reference, 'iplot': 0},
      u={'t': resultCont.t, 'u': resultCont.u, 'iplot': 1},
