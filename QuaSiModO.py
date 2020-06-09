@@ -575,12 +575,10 @@ class ClassControlDataSet:
                             if flagDXU:
                                 pass
                     else:
-                        # if not any(rawData.iu[i][j + 1: j + (1 + nDelay) * nLag, 0] != rawData.iu[i][j, 0]):
-                        if not any(rawData.iu[i][j + nDelay * nLag: j + (1 + nDelay) * nLag, 0] != rawData.iu[i][j + nDelay * nLag, 0]):
-                        # if not any(rawData.iu[i][j + 1: j + nLag, 0] != rawData.iu[i][j, 0]):
-                            X[rawData.iu[i][j, 0]].append(self.stackZ(rawData.z[i][j: j + self.nDelay * nLag + 1, :], nLag))
-                            Y[rawData.iu[i][j, 0]].append(self.stackZ(rawData.z[i][j + nLag: j + (self.nDelay + 1) * nLag + 1, :], nLag))
-
+                        if not any(rawData.iu[i][j + nDelay * nLag: j + (1 + nDelay) * nLag + 1, 0] != rawData.iu[i][j + nDelay * nLag, 0]):
+                            X[rawData.iu[i][j + nDelay * nLag, 0]].append(self.stackZ(rawData.z[i][j: j + self.nDelay * nLag + 1, :], nLag))
+                            Y[rawData.iu[i][j + nDelay * nLag, 0]].append(self.stackZ(rawData.z[i][j + nLag: j + (self.nDelay + 1) * nLag + 1, :], nLag))
+                        
             else:
                 for j in range(rawData.z[i].shape[0]):
                     X[rawData.iu[i][j, 0]].append(rawData.z[i][j, :])
