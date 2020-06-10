@@ -214,5 +214,8 @@ def plotLines3D():
     pass
 
 
-def plotPhase3D():
-    pass
+def plotPhase3D(x, y, z):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot(x, y, z)
+    plt.show()

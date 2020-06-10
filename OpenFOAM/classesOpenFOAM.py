@@ -139,7 +139,9 @@ class ClassOpenFOAM:
 
     def createOrUpdateModel(self, uMin, uMax, hWrite, dimZ=None, Re=None, iObs=None, y0=None, typeUGrid=None, nGridU=1,
                             uGrid=None):
-        model = ClassModel(self, uMin, uMax, hWrite, dimZ, Re, iObs, y0, typeUGrid, nGridU, uGrid, self.obs.writeY)
+        if Re is not None:
+            params = {'Re': Re}
+        model = ClassModel(self, uMin, uMax, hWrite, dimZ, params, iObs, y0, typeUGrid, nGridU, uGrid, self.obs.writeY)
         return model
 
     def createIC(self, y0):

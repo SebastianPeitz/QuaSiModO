@@ -57,11 +57,11 @@ class ClassModel:
     nU = []
     typeUGrid = []
 
-    def __init__(self, modelFileOrClass, uMin, uMax, h, dimZ, Re=None, iObs=None, y0=None,
+    def __init__(self, modelFileOrClass, uMin, uMax, h, dimZ, params=None, iObs=None, y0=None,
                  typeUGrid=None, nGridU=1, uGrid=None, writeY=True):
 
         print('Creating ClassModel with uMin = ' + str(uMin) + '; uMax = ' + str(uMax) + '; h = ' + str(h) +
-              '; dimZ = ' + str(dimZ) + '; Re = ' + str(Re) + '; iObs = ' + str(iObs) + '; y0 = ' + str(y0) +
+              '; dimZ = ' + str(dimZ) + '; iObs = ' + str(iObs) + '; y0 = ' + str(y0) +
               '; typeUGrid = ' + str(typeUGrid) + '; nGridU = ' + str(nGridU))
 
         self.dimZ = dimZ
@@ -83,9 +83,8 @@ class ClassModel:
         if y0 is not None:
             self.y0 = y0
 
-        if Re is not None:
-            self.Re = Re
-            self.viscosity = 1.0 / Re
+        if params is not None:
+            self.params = params
 
         if iObs is not None:
             self.iObs = iObs
