@@ -833,14 +833,16 @@ class ClassSurrogateModel:
         z = np.zeros([alpha.shape[0] + 1, self.dimZ * (1 + self.nDelay)], dtype=float)
         z[0, :] = z0
         zPlus = np.zeros([1, self.dimZ * (1 + self.nDelay)], dtype=float)
+        time = t0
         for i in range(alpha.shape[0]):
             zPlus[0, :] = 0.0
             for iu in range(self.nU - 1):
-                ziu, _, _ = self.timeTMap(z[i, :], t0, iu, self.modelData)
+                ziu, _, _ = self.timeTMap(z[i, :], time, iu, self.modelData)
                 zPlus += alpha[i, iu] * ziu
-            ziu, _, _ = self.timeTMap(z[i, :], t0, self.nU - 1, self.modelData)
+            ziu, _, _ = self.timeTMap(z[i, :], time, self.nU - 1, self.modelData)
             zPlus += (1.0 - np.sum(alpha[i, :])) * ziu
             z[i + 1, :] = zPlus
+            time = time + self.h
 
         return z
 
