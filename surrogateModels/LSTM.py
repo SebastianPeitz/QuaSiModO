@@ -1,14 +1,8 @@
 import numpy as np
 
-import tensorflow as tf
-
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import LSTM
-
-import time
-
-import matplotlib.pyplot as plt
 
 
 def timeTMap(z0, t0, iu, modelData):
@@ -37,7 +31,6 @@ def createSurrogateModel(modelData, data):
     Y = data['Y']
      
     train_per = 0.9
-    val_per = 1.0 - train_per
     
     model = dict()
     mean = np.zeros([len(X),])
@@ -53,13 +46,13 @@ def createSurrogateModel(modelData, data):
         data_size = dataX.shape[0]
         
         train_size = int(np.ceil(train_per*data_size))
-        val_size = int(np.floor(val_per*data_size))
+        val_size = data_size-train_size
     
         # Prepare data sets
-        Xtrain,Ytrain,Xval,Yval,dimZ, mean[i], std[i] = make_LSTM_datasets(modelData, dataX, dataY, train_size, val_size)
+        Xtrain,Ytrain,Xval,Yval,dimZ, mean[i], std[i] = LSTM_datasets(modelData, dataX, dataY, train_size, val_size)
     
         # Create and train model
-        model[i] = make_and_train_LSTM_model(modelData,Xtrain,Ytrain,Xval,Yval,dimZ)
+        model[i] = create_and_train_LSTM_model(modelData,Xtrain,Ytrain,Xval,Yval,dimZ)
     
     
     # Save LSTM models and important parameters
@@ -71,7 +64,7 @@ def createSurrogateModel(modelData, data):
     return modelData
 
 
-def make_LSTM_datasets(modelData, dataX, dataY, train_size,val_size):
+def LSTM_datasets(modelData, dataX, dataY, train_size,val_size):
     
     dimZ = int(dataX.shape[1] / (modelData.nDelay + 1))
     dataY = dataY[:,:dimZ]
@@ -102,7 +95,7 @@ def make_LSTM_datasets(modelData, dataX, dataY, train_size,val_size):
     return Xtrain, Ytrain, Xval, Yval, dimZ, mean,std
 
 
-def make_and_train_LSTM_model(modelData, Xtrain,Ytrain,Xval,Yval,dimZ):
+def create_and_train_LSTM_model(modelData, Xtrain,Ytrain,Xval,Yval,dimZ):
     
     # create model
     model = Sequential()
