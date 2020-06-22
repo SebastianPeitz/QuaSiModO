@@ -141,6 +141,8 @@ class ClassOpenFOAM:
                             uGrid=None):
         if Re is not None:
             params = {'Re': Re}
+        else:
+            params = None
         model = ClassModel(self, uMin, uMax, hWrite, dimZ, params, iObs, y0, typeUGrid, nGridU, uGrid, self.obs.writeY)
         return model
 

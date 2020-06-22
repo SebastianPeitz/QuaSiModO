@@ -104,11 +104,9 @@ plot(z={'t': dataSet.rawData.t[0], 'z': dataSet.rawData.z[0][:, :model.dimZ], 'i
 # Define reference trajectory
 TRef = T + 20.0
 nRef = int(round(TRef / h)) + 1
-zRef = np.zeros([nRef, 1], dtype=float)
+zRef = np.zeros([nRef, 2], dtype=float)
 
-iRef = [0]
-
-reference = ClassReferenceTrajectory(model, T=TRef, zRef=zRef, iRef=iRef)
+reference = ClassReferenceTrajectory(model, T=TRef, zRef=zRef)
 
 # Create class for the MPC problem
 MPC = ClassMPC(np=50, nc=1, nch=1, typeOpt='continuous', scipyMinimizeMethod='SLSQP') # scipyMinimizeMethod='trust-constr'
@@ -123,7 +121,7 @@ S = [0.1]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 # -------------------------------------------------------------------------------------------------------------------- #
 
 # 1) Surrogate model, continuous input obtained via relaxation of the integer input in uGrid
-resultCont = MPC.run(model, reference, surrogateModel=surrogate, T=T, Q=Q, R=R, S=S, updateSurrogate=True, trySymmetricIC=True)
+resultCont = MPC.run(model, reference, surrogateModel=surrogate, T=T, Q=Q, R=R, S=S, updateSurrogate=True)
 
 plot(z={'t': resultCont.t, 'z': resultCont.z, 'reference': reference, 'iplot': 0},
      u={'t': resultCont.t, 'u': resultCont.u, 'iplot': 1},

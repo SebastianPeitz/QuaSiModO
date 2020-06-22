@@ -20,12 +20,14 @@ Ttrain = 100.0  # Time for the simulation in the traing data generation
 nLag = 100  # Lag time for EDMD
 nMonomials = 3  # Max order of monomials for EDMD
 
+params = {'Re': Re}
+
 # -------------------------------------------------------------------------------------------------------------------- #
 # Model creation
 # -------------------------------------------------------------------------------------------------------------------- #
 
 # Create model class
-model = ClassModel('burgers.py', h=h, uMin=uMin, uMax=uMax, Re=Re, dimZ=len(xObs), typeUGrid='oneSidedStar')
+model = ClassModel('burgers.py', h=h, uMin=uMin, uMax=uMax, params=params, dimZ=len(xObs), typeUGrid='oneSidedStar')
 model.setGrid1D(L, dx, xObs)
 
 y0 = np.linspace(0.0, 1.0, len(model.grid.x))

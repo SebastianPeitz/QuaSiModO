@@ -124,7 +124,7 @@ def createSurrogateModel(modelData, data):
         dyMean.append(modelData.of.calcGradient(yMean[i].T))
         dPsi.append(modelData.of.calcGradient(Psi[i].T))
 
-        modelData.of.writeField(Psi[i].T, 'U', iStart=200 + i * (modelData.nModes + 1))
+        # modelData.of.writeField(Psi[i].T, 'U', iStart=200 + i * (modelData.nModes + 1))
 
     A, B, C = list(), list(), list()
     indices = np.asarray(range(0, 2 * modelData.of.mesh.nc, 2))

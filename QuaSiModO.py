@@ -334,12 +334,13 @@ class ClassControlDataSet:
         9) iu: index of controls to input 8)
         """
 
-        if h is not None and T is not None:
-            self.h = h
-            self.T = T
-            self.t = np.linspace(0, T, int(T / h + 1))
-        elif self.h is not None and self.T is not None:
-            self.t = np.linspace(0, self.T, int(self.T / self.h + 1))
+        if T is None:
+            T = self.T
+
+        if h is None:
+            h = self.h
+
+        self.t = np.linspace(0, T, int(T / h + 1))
 
         if uGrid is None:
             if len(model.uGrid) == 0:

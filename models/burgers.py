@@ -3,6 +3,8 @@ import numpy as np
 
 def simulateModel(y0, t0, u, model):
 
+    flagDirichlet0 = model.params['flagDirichlet0']
+
     viscosity = 1.0 / model.params['Re']
 
     # Problem dimensions
@@ -18,6 +20,10 @@ def simulateModel(y0, t0, u, model):
     y = np.zeros([nt, nx], dtype=float)
     y[0, :] = y0
 
+    if flagDirichlet0:
+        y[0, 0] = 0.0
+        y[0, -1] = 0.0
+
     # Distributed control input via characteristic function
     i11 = 0
     i12 = 19
@@ -30,6 +36,9 @@ def simulateModel(y0, t0, u, model):
         y[i, :] = y[i - 1, :] - (model.h * y[i - 1, :] * (y[i - 1, :] - y[i - 1, im]) / model.grid.dx) + (
                 viscosity * model.h * (y[i - 1, ip] - 2 * y[i - 1, :] + y[i - 1, im]) / (
                 model.grid.dx * model.grid.dx)) + model.h * Chi_u1 * u[i, 0]
+        if flagDirichlet0:
+            y[i, 0] = 0.0
+            y[i, -1] = 0.0
 
     # Observation
     # z = y[model.grid.iObs, :]
