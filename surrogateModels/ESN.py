@@ -76,9 +76,12 @@ def createSurrogateModel(modelData, data):
     
 
 def set_state(modelData, state, t):
-    if modelData.state.shape[1] < int(t / modelData.h) + 1:
+    step = int(np.round(t / modelData.h))
+    if modelData.state.shape[1] < step + 1:
         modelData.state = np.concatenate((modelData.state, np.zeros([modelData.ESN.n_reservoir,1])),axis=1)
-    modelData.state[:,int(t / modelData.h)] = state[:,0]
+    modelData.state[:, step] = state[:,0]
     
 def get_state(modelData, t):
-    return np.reshape(modelData.state[:,int(t / modelData.h)],[modelData.ESN.n_reservoir,1])
+    step = int(np.round(t / modelData.h))
+    return np.reshape(modelData.state[:,step],[modelData.ESN.n_reservoir,1])
+    
