@@ -331,6 +331,7 @@ class ClassControlDataSet:
                          Random length of intervals bounded by nhMin and nhMax.
             d) Numerical value: Constant control input over the entire trajectory
         8) u: Previously created sequence
+
         9) iu: index of controls to input 8)
         """
 
@@ -784,6 +785,10 @@ class ClassSurrogateModel:
             self.updateSurrogateModel = moduleSurrogateModel.updateSurrogateModel
         if hasattr(moduleSurrogateModel, 'calcJ'):
             self.calcJ = moduleSurrogateModel.calcJ
+        if hasattr(moduleSurrogateModel, 'saveSurrogateModel'):
+            self.saveSurrogateModel = moduleSurrogateModel.saveSurrogateModel
+        if hasattr(moduleSurrogateModel, 'loadSurrogateModel'):
+            self.loadSurrogateModel = moduleSurrogateModel.loadSurrogateModel
 
         setattr(self.modelData, 'h', self.h)
         setattr(self.modelData, 'uGrid', self.uGrid)
@@ -794,7 +799,7 @@ class ClassSurrogateModel:
     def createROM(self, data, savePath=None, loadPath=None):
 
         if loadPath is not None:
-            fIn = open(loadPath, 'rb')
+            fIn = open(loadPath + '.pkl', 'rb')
             selfLoad = pickle.load(fIn)
             self.X = selfLoad.X
             self.Y = selfLoad.Y
@@ -807,14 +812,24 @@ class ClassSurrogateModel:
             self.nU = selfLoad.nU
             self.uGrid = selfLoad.uGrid
             self.z0 = selfLoad.z0
-            setattr(self, 'modelData', selfLoad.modelData)
+            if self.loadSurrogateModel is not None:
+                self.modelData = self.loadSurrogateModel(loadPath)
+            else:
+                setattr(self, 'modelData', selfLoad.modelData)
             return
 
         if self.createSurrogateModel is not None:
             self.modelData = self.createSurrogateModel(self.modelData, data)
             if savePath is not None:
-                fOut = open(savePath, 'wb')
-                pickle.dump(self, fOut)
+                if self.saveSurrogateModel is not None:
+                    self.saveSurrogateModel(self.modelData, savePath)
+                    modelData_temp = self.modelData
+                    self.modelData = []
+                with open(savePath + '.pkl', 'wb') as fOut:
+                    pickle.dump(self, fOut)
+                if self.saveSurrogateModel is not None:
+                    self.modelData = modelData_temp
+
         else:
             print('Error in "ClassSurrogateModel.createROM": No function "createSurrogateModel(modelData, data)" '
                   'defined in the .py file containing the model')
@@ -1031,7 +1046,7 @@ class ClassMPC:
         if T is None:
             T = self.T
 
-        if reference.T < T:
+        if reference.T < T + model.h * self.np:
             T = reference.T
             print('Warning: Reference trajectory is shorter than desired control horizon. Shortening T to ' + str(T))
 

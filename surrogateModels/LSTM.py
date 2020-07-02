@@ -1,8 +1,12 @@
 import numpy as np
 
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import LSTM
+
+import pickle
+
+import copy
 
 
 def timeTMap(z0, t0, iu, modelData):
@@ -13,8 +17,8 @@ def timeTMap(z0, t0, iu, modelData):
     tt = (tt-modelData.data_mean[iu])/modelData.data_std[iu];
     
     # model predicition
-    y_pred = modelData.LSTM_model[iu].predict(tt,batch_size=1) 
-    
+    y_pred = modelData.LSTM_model[iu].predict_on_batch(tt)
+
     # transform output
     y_pred = y_pred * modelData.data_std[iu] + modelData.data_mean[iu] 
     z = np.concatenate((y_pred[0,:], z0[:-modelData.dimZ]))
@@ -53,6 +57,7 @@ def createSurrogateModel(modelData, data):
     
         # Create and train model
         model[i] = create_and_train_LSTM_model(modelData,Xtrain,Ytrain,Xval,Yval,dimZ)
+        model[i]._experimental_run_tf_function = True
     
     
     # Save LSTM models and important parameters
@@ -104,7 +109,32 @@ def create_and_train_LSTM_model(modelData, Xtrain,Ytrain,Xval,Yval,dimZ):
     model.compile(loss='mse', optimizer='adam')
 
     # train model
-    model.fit(Xtrain, Ytrain, epochs=10, validation_data=(Xval,Yval), batch_size=72, verbose=2, shuffle=True)
+    model.fit(Xtrain, Ytrain, epochs=modelData.epochs, validation_data=(Xval,Yval), batch_size=72, verbose=2, shuffle=True)
     
     return model
+
+
+def loadSurrogateModel(loadPath):
+
+    fIn = open(loadPath + '_LSTM.pkl', 'rb')
+    modelData = pickle.load(fIn)
+
+    model = dict()
+    for iu in range(modelData.uGrid.shape[0]):
+        model[iu] = load_model(loadPath + '_' + str(iu))
+
+    setattr(modelData, 'LSTM_model', model)
+
+    return modelData
+
+
+def saveSurrogateModel(modelData,savePath):
+
+    modelData_temp = copy.copy(modelData)
+    modelData_temp.LSTM_model = []
+
+    with open(savePath + '_LSTM.pkl', 'wb') as fOut:
+        pickle.dump(modelData_temp, fOut)
+    for iu in range(modelData.uGrid.shape[0]):
+        modelData.LSTM_model[iu].save(savePath + '_' + str(iu))
 

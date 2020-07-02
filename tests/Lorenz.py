@@ -36,6 +36,7 @@ elif method == "LSTM":
     nDelay = 2 # Number of Delay steps for LSTM (LSTM needs a delay)
     nLag = 5 # Lag time for LSTM
     nhidden = 15 # number of hidden neurons in LSTM cell
+    epochs = 10
 
 
 # %%
@@ -102,10 +103,10 @@ if method == "EDMD":
                                     nMonomials=nMonomials, epsUpdate=0.05)
     
 elif method == "LSTM":
-    
+    print("Use LSTM as surrogate:")
     surrogate = ClassSurrogateModel('LSTM.py', uGrid=model.uGrid, 
                                     h=nLag * model.h, dimZ=model.dimZ, 
-                                    z0=y0, nDelay=nDelay, nhidden=nhidden) 
+                                    z0=y0, nDelay=nDelay, nhidden=nhidden, epochs=epochs)
     
 surrogate.createROM(data)
     
