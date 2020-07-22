@@ -351,10 +351,10 @@ class ClassControlDataSet:
             else:
                 uGrid = model.uGrid
 
-        print('Creating control sequence with h = ' + str(self.h) + '; T = ' + str(self.T) + '; uGrid = ' + str(uGrid) +
+        print('Creating control sequence with h = ' + str(h) + '; T = ' + str(T) + '; uGrid = ' + str(uGrid) +
               '; nhMin = ' + str(nhMin) + '; nhMax = ' + str(nhMax) + '; typeSequence = ' + str(typeSequence))
 
-        nt = int(self.T / self.h + 1)
+        nt = int(T / h + 1)
 
         if u is None:
             if iu is not None:
@@ -1223,6 +1223,7 @@ class ClassMPC:
                 # Save data to file
                 if savePath is not None:
                     result.save(savePath)
+                    result.saveMat(savePath)
 
                 # Update surrogate model
                 if (surrogateModel.updateSurrogateModel is not None) and updateSurrogate:
@@ -1313,6 +1314,7 @@ class ClassMPC:
                 # Save data to file
                 if savePath is not None:
                     result.save(savePath)
+                    result.saveMat(savePath)
 
                 # Update variables
                 time = time + self.nch * model.h
@@ -1461,13 +1463,13 @@ def sumUpRounding(alphaNew, alpha, omega, nU):
     omegaOut = np.zeros([alphaNew.shape[0], nU], dtype=float)
     iOut = np.zeros([alphaNew.shape[0], 1], dtype=int)
 
-    omegaHat = np.zeros([1, nU], dtype=float)
+    omegaHat = np.zeros([nU], dtype=float)
     for j in range(alphaNew.shape[0]):
         for i in range(nU - 1):
-            omegaHat[0, i] = np.sum(alphaNew[:j + 1, i]) + np.sum(alpha[:, i]) - (
+            omegaHat[i] = np.sum(alphaNew[:j + 1, i]) + np.sum(alpha[:, i]) - (
                     np.sum(omegaOut[:j, i]) + np.sum(omega[:, i]))
 
-        omegaHat[0, nU - 1] = np.sum(1.0 - np.sum(alphaNew[:j + 1, :], axis=1)) + np.sum(
+        omegaHat[nU - 1] = np.sum(1.0 - np.sum(alphaNew[:j + 1, :], axis=1)) + np.sum(
             1.0 - np.sum(alpha, axis=1)) - (np.sum(omegaOut[:j, -1]) + np.sum(omega[:, -1]))
 
         iOut[j, 0] = np.argmax(omegaHat)

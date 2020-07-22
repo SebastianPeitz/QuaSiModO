@@ -57,6 +57,8 @@ class ESNControl():
         
         if state_init is not None:
             states[:,0] = state_init[:,0]
+        else:
+            states[:,0] = np.ones([self.n_reservoir,])
     
         for i in range(states.shape[1]-1):
             states[:,i+1] = np.tanh(self.A.dot(states[:,i]) + np.dot(self.Win,input[i,:]))

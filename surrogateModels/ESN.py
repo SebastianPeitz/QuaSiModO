@@ -6,8 +6,8 @@ from surrogateModels.ESN_Control import ESNControl
 def timeTMap(z0, t0, iu, modelData):
     
     tt = z0.reshape([1,modelData.dimZ * (modelData.nDelay + 1)])
-
-    state = modelData.ESN.eval_reservoir_layer(tt, 1, get_state(modelData, t0 - modelData.h))
+    
+    state = modelData.ESN.eval_reservoir_layer(tt, 1, get_state(modelData, t0))
     
     # eval output layer with current state 
     y_pred = modelData.ESN.eval_output_layer(state, iu)
@@ -31,9 +31,11 @@ def createSurrogateModel(modelData, data):
     Y = []
     iuTrain = []
     
+    trans = int(modelData.h * 2.0)
+    
     for i in range(len(data.z)):
-        dataPrep = data.z[i][::modelData.nLag]
-        iuPrep = data.iu[i][::modelData.nLag]
+        dataPrep = data.z[i][trans::modelData.nLag]
+        iuPrep = data.iu[i][trans::modelData.nLag]
         
         X.append(dataPrep[:-1,:])
         Y.append(dataPrep[1:,:])
@@ -65,7 +67,7 @@ def createSurrogateModel(modelData, data):
     # train output layer of ESN with states and Y
     ESN.train(states, iuTrain, Y)
 
-    state = np.zeros([states.shape[0],1])
+    state = np.reshape(states[:,-1], [states.shape[0],1])#np.zeros([states.shape[0],1])
     
     # Save ESN instance and important parameters
     setattr(modelData, 'ESN', ESN)
