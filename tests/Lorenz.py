@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 # Choose method and set parameters
 # -------------------------------------------------------------------------------------------------------------------- #
 
-method = "LSTM"
+method = "EDMD"
 
 sigma = 10.0 # Paramters for Lorenz system
 r = 28.0
@@ -26,17 +26,17 @@ uMax = [80.0]  # Maximal value of the input (also defines dimU)
 dimZ = 3  # dimension of the observable (= dimY in the ODE case, unless iObs is passed to ClassModel)
 nGridU = 2  # number of parts the grid is split into (--> uGrid = [-2, 0, 2])
 
-Ttrain = 10000  # Time for the simulation in the traing data generation
+Ttrain = 100#10000  # Time for the simulation in the traing data generation
 
 if method == "EDMD":
     nLag = 5  # Lag time for EDMD
     nMonomials = 3  # Max order of monomials for EDMD
     nDelay = 0 # Number of Delay steps for EDMD (EDMD seems to work worse with delay)
 elif method == "LSTM":
-    nDelay = 2 # Number of Delay steps for LSTM (LSTM needs a delay)
+    nDelay = 10 # Number of Delay steps for LSTM (LSTM needs a delay)
     nLag = 5 # Lag time for LSTM
-    nhidden = 15 # number of hidden neurons in LSTM cell
-    epochs = 10
+    nhidden = 50 # number of hidden neurons in LSTM cell
+    epochs = 20
 
 
 # %%
