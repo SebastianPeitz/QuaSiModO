@@ -682,12 +682,13 @@ class ClassRawData:
 def arrayToList(x):
     if type(x) != type(list()):
         y = list()
-        if x.ndim == 2:
+        if x[0,...].shape == ():
             for i in range(x.shape[0]):
-                y.append(x[i, :])
-        elif x.ndim == 3:
+                y.append(x[i,...].item())
+        else:
             for i in range(x.shape[0]):
-                y.append(x[i, :, :])
+                y.append(x[i,...])
+        
         return y
     else:
         return x
