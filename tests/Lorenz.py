@@ -10,31 +10,31 @@ import matplotlib.pyplot as plt
 # Choose method and set parameters
 # -------------------------------------------------------------------------------------------------------------------- #
 
-method = "EDMD"
+method = "LSTM"
 
 sigma = 10.0 # Paramters for Lorenz system
 r = 28.0
 b = 8/3
 
 
-T = 10.0 # Time for the MPC problem
-h = 0.01  # Time step for the ODE solver, for the training data sampling and for the MPC step length
+T = 20.0 # Time for the MPC problem
+h = 0.0005  # Time step for the ODE solver, for the training data sampling and for the MPC step length
 y0 = [0.5,-0.5,1.0]  # Initial condition of the ODE
-uMin = [-80.0]  # Minimal value of the input (also defines dimU)
-uMax = [80.0]  # Maximal value of the input (also defines dimU)
+uMin = [-50.0]  # Minimal value of the input (also defines dimU)
+uMax = [50.0]  # Maximal value of the input (also defines dimU)
 
 dimZ = 3  # dimension of the observable (= dimY in the ODE case, unless iObs is passed to ClassModel)
-nGridU = 2  # number of parts the grid is split into (--> uGrid = [-2, 0, 2])
-
-Ttrain = 100#10000  # Time for the simulation in the traing data generation
+nGridU = 1  # number of parts the grid is split into (--> uGrid = [-2, 0, 2])
 
 if method == "EDMD":
-    nLag = 5  # Lag time for EDMD
+    Ttrain = 100  # Time for the simulation in the traing data generation
+    nLag = 100  # Lag time for EDMD
     nMonomials = 3  # Max order of monomials for EDMD
     nDelay = 0 # Number of Delay steps for EDMD (EDMD seems to work worse with delay)
 elif method == "LSTM":
+    Ttrain = 1000  # Time for the simulation in the traing data generation
     nDelay = 10 # Number of Delay steps for LSTM (LSTM needs a delay)
-    nLag = 5 # Lag time for LSTM
+    nLag = 100 # Lag time for LSTM
     nhidden = 50 # number of hidden neurons in LSTM cell
     epochs = 20
 
@@ -48,9 +48,9 @@ def rhs(y_, u_):
     
     y = np.zeros([3,]);
 
-    y[0] = sigma * (y_[1] - y_[0]);
-    y[1] = r * y_[0] - y_[0] * y_[2] - y_[1] + u_;
-    y[2] = y_[0] * y_[1] - b * y_[2];    
+    y[0] = sigma * (y_[1] - y_[0])
+    y[1] = r * y_[0] - y_[0] * y_[2] - y_[1] + u_   #50 * np.cos(u_);
+    y[2] = y_[0] * y_[1]  - b * y_[2]    
     
     return y
 
@@ -74,7 +74,7 @@ dataSet = ClassControlDataSet(h=model.h, T=Ttrain)
 
 # Create a sequence of controls
 #a) piecewise constant than sort training data according to control input
-uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=10, nhMax=20)
+uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=2*nLag, nhMax=4*nLag)
 
 #b) Sample data for every control input 
 # uTrain = None
@@ -116,39 +116,39 @@ surrogate.createROM(data)
 # Test surrogate model
 # -------------------------------------------------------------------------------------------------------------------- #
 
-start = np.random.randint(nDelay + 1, dataSet.rawData.z[0].shape[0])
-steps = 1000
+# start = np.random.randint(nDelay + 1, dataSet.rawData.z[0].shape[0])
+# steps = 1000
 
-iu = np.random.randint(0,3,[int(steps/nLag),1])
-u = np.zeros([steps,1])
-for i in range(int(steps/nLag)):
-    u[nLag * i :nLag * (i+1),0] = model.uGrid[iu[i,0]]
-
-
-y0_test = dataSet.rawData.z[0][start,:]
-y_ode,_, t_ode,_ = model.integrate(y0_test,u,0.0)
+# iu = np.random.randint(0,3,[int(steps/nLag),1])
+# u = np.zeros([steps,1])
+# for i in range(int(steps/nLag)):
+#     u[nLag * i :nLag * (i+1),0] = model.uGrid[iu[i,0]]
 
 
-temp = dataSet.rawData.z[0][start:start-nDelay-1:-1,:]
-temp = np.reshape(temp,[1,(nDelay+1),dimZ])
-temp = temp[:,::-1,:]
-y0_test =  np.reshape(temp,[dimZ*(nDelay+1)])
-y_model, t_model = surrogate.integrateDiscreteInput(y0_test, 0.0, iu)
+# y0_test = dataSet.rawData.z[0][start,:]
+# y_ode,_, t_ode,_ = model.integrate(y0_test,u,0.0)
+
+
+# temp = dataSet.rawData.z[0][start:start-nDelay-1:-1,:]
+# temp = np.reshape(temp,[1,(nDelay+1),dimZ])
+# temp = temp[:,::-1,:]
+# y0_test =  np.reshape(temp,[dimZ*(nDelay+1)])
+# y_model, t_model = surrogate.integrateDiscreteInput(y0_test, 0.0, iu)
 
     
-fig, axs = plt.subplots(nrows = 3, ncols=1, constrained_layout=True,figsize=(10, 6))
-plt.title("Test performance", fontsize=12)
-for i in range(3):
+# fig, axs = plt.subplots(nrows = 3, ncols=1, constrained_layout=True,figsize=(10, 6))
+# plt.title("Test performance", fontsize=12)
+# for i in range(3):
 
-    axs[i].plot(t_model, y_model[:,i], linewidth=2)
-    axs[i].plot(t_ode, y_ode[:,i], linewidth=2)
-    axs[i].set_ylabel(r"$x[$" + str(i) + r"$]$", fontsize=12)
+#     axs[i].plot(t_model, y_model[:,i], linewidth=2)
+#     axs[i].plot(t_ode, y_ode[:,i], linewidth=2)
+#     axs[i].set_ylabel(r"$x[$" + str(i) + r"$]$", fontsize=12)
 
-plt.xlabel(r"$t$", fontsize=12) 
+# plt.xlabel(r"$t$", fontsize=12) 
 
-# plt.savefig("Figures/test_prediction_surrogate.pdf", bbox_inches="tight")
+# # plt.savefig("Figures/test_prediction_surrogate.pdf", bbox_inches="tight")
     
-plt.show()
+# plt.show()
  
 # %%
 
@@ -161,7 +161,8 @@ iRef = [1]
 
 TRef = T + 2.0
 nRef = int(round(TRef / h)) + 1
-zRef = np.zeros([nRef, 1], dtype=float)
+p_y = np.sqrt(b * (r -1))
+zRef = p_y * np.ones([nRef, 1], dtype=float)
 
 ## Sinus trajectory:
 tRef = np.array(np.linspace(0.0, T, nRef))
@@ -193,19 +194,20 @@ S = [0.0]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 # Solve different MPC problems (via "MPC.run") and plot the result
 # -------------------------------------------------------------------------------------------------------------------- #
 
-# 1) Surrogate model, continuous input obtained via relaxation of the integer input in uGrid
-resultCont = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S)
+save_path_cont = 'Figures_Paper/Lorenz_EDMD_cont'
+save_path_SUR = 'Figures_Paper/Lorenz_EDMD_SUR'
 
-print("shapes:")
+# 1) Surrogate model, continuous input obtained via relaxation of the integer input in uGrid
+resultCont = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S,savePath =save_path_cont)
 
 plot(z={'t': resultCont.t, 'z': np.reshape(resultCont.z[:,1],[resultCont.z.shape[0],1]), 'reference': reference, 'iplot': 0},
-     u={'t': resultCont.t, 'u': resultCont.u, 'iplot': 1},
-     J={'t': resultCont.t, 'J': resultCont.J, 'iplot': 2},
-     nFev={'t': resultCont.t, 'nFev': resultCont.nFev, 'iplot': 3})
+      u={'t': resultCont.t, 'u': resultCont.u, 'iplot': 1},
+      J={'t': resultCont.t, 'J': resultCont.J, 'iplot': 2},
+      nFev={'t': resultCont.t, 'nFev': resultCont.nFev, 'iplot': 3})
 
 # 2) Surrogate model, integer control computed via relaxation and sum up rounding
 MPC.typeOpt = 'SUR'
-result_SUR = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S)
+result_SUR = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S,savePath=save_path_SUR)
 
 plot(z={'t': result_SUR.t, 'z': np.reshape(result_SUR.z[:,1],[result_SUR.z.shape[0],1]), 'reference': reference, 'iplot': 0},
      u={'t': result_SUR.t, 'u': result_SUR.u, 'iplot': 1},
@@ -213,3 +215,5 @@ plot(z={'t': result_SUR.t, 'z': np.reshape(result_SUR.z[:,1],[result_SUR.z.shape
      nFev={'t': result_SUR.t, 'nFev': result_SUR.nFev, 'iplot': 3},
      alpha={'t': result_SUR.t, 'alpha': result_SUR.alpha, 'iplot': 4},
      omega={'t': result_SUR.t, 'omega': result_SUR.omega, 'iplot': 5})
+
+
