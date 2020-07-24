@@ -1000,7 +1000,7 @@ class ClassMPC:
         self.calcJ = self.calcJInternal
 
     def run(self, model, reference, surrogateModel=None, y0=None, z0=None, T=None, Q=[1.0], L=[0.0], R=[0.0], S=[0.0],
-            savePath=None, updateSurrogate=False, trySymmetricIC=False):
+            savePath=None, updateSurrogate=False, trySymmetricIC=False, iuInit=0):
         """ClassMPC.run
 
         This function solves the MPC problem over the time interval [0, T] by sequentially solving the following
@@ -1107,8 +1107,9 @@ class ClassMPC:
 
             # If delay is activated, then perform model simulation until a sufficiently long history exists
             if surrogateModel.nDelay > 0:
-                iuInit = np.zeros([surrogateModel.nDelay * surrogateModel.hShM + 1, 1], dtype=int)
+                iuInit = iuInit * np.ones([surrogateModel.nDelay * surrogateModel.hShM + 1, 1], dtype=int)
                 uInit = mapIuToU(iuInit, surrogateModel.uGrid)
+                print(uInit)
                 [yInit, zInit, tInit, model] = model.integrate(y0, uInit, time)
 
                 # Update variables
