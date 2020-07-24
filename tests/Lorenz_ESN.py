@@ -26,7 +26,7 @@ uMax = [80.0]  # Maximal value of the input (also defines dimU)
 dimZ = 3  # dimension of the observable (= dimY in the ODE case, unless iObs is passed to ClassModel)
 nGridU = 2  # number of parts the grid is split into (--> uGrid = [-2, 0, 2])
 
-Ttrain = 10000  # Time for the simulation in the traing data generation
+Ttrain = 1000  # Time for the simulation in the traing data generation
 
 if method == "EDMD":
     nLag = 5  # Lag time for EDMD
