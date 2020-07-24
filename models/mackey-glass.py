@@ -110,7 +110,8 @@ def simulateModel(y0, t0, u, model):
     ty = np.linspace(t0 - tau, t0, ny)
     f = scipy.interpolate.interp1d(ty, y0, fill_value="extrapolate")
 
-    nLag = int(round(tau / model.h / (model.dimZ - 1)))
+    if model.dimZ > 1:
+        nLag_float = tau / model.h / (model.dimZ - 1)
 
     def iniVal(t_):
         return [f(t_)]
@@ -127,9 +128,9 @@ def simulateModel(y0, t0, u, model):
     z = np.zeros([nt, model.dimZ], dtype=float)
     for i in range(model.dimZ - 1):
         # z[:, i] = yAll[i * nLag:-(model.dimZ - i - 1) * nLag]
-        z[:, -(i + 1)] = yAll[i * nLag:-(model.dimZ - i - 1) * nLag]
+        z[:, -(i + 1)] = yAll[int(round(i * nLag_float)):-int(round((model.dimZ - i - 1) * nLag_float))]
     # z[:, -1] = yAll[(model.dimZ - 1) * nLag:]
-    z[:, 0] = yAll[(model.dimZ - 1) * nLag:]
+    z[:, 0] = yAll[int(tau / model.h):]
 
     y = np.zeros([nt, ny], dtype=float)
     for i in range(ny - 1):
