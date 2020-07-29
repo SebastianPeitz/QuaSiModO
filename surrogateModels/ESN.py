@@ -39,8 +39,11 @@ def createSurrogateModel(modelData, data):
         
         X.append(dataPrep[:-1,:])
         Y.append(dataPrep[1:,:])
-    
-        iuTrain.append(iuPrep[:-1,:])
+
+        if iuPrep.shape[0] == dataPrep.shape[0]:
+            iuTrain.append(iuPrep[:-1,:])
+        else:
+            iuTrain.append(iuPrep)
     
     mean = np.mean(np.concatenate(X,axis=0),axis=0)
     std = np.std(np.concatenate(X,axis=0),axis=0)
