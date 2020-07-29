@@ -1158,7 +1158,7 @@ class ClassMPC:
                     nFev = surrogateModel.nU ** self.np
                     for iuu in itertools.product(uTmp, repeat=self.np):
                         iu = np.stack(iuu)
-                        zRef = reference.z[iTime +1: iTime + surrogateModel.hShM * (self.nch * self.np) + 1: surrogateModel.hShM, :]
+                        zRef = reference.z[iTime +surrogateModel.hShM: iTime + surrogateModel.hShM * (self.nch * self.np) + surrogateModel.hShM: surrogateModel.hShM, :]
                         J = self.objectiveSurrogate(surrogateModel, zRef, mapIuToAlpha(iu, model.nU), z0, time)
                         if J < JOpt:
                             JOpt = J
@@ -1173,7 +1173,7 @@ class ClassMPC:
                         iuOpt2 = self.repeatControl(iuOpt2, self.nch * surrogateModel.hShM)
 
                 else:
-                    zRef = reference.z[iTime+1: iTime + surrogateModel.hShM * (self.nch * self.np) + 1: surrogateModel.hShM, :]
+                    zRef = reference.z[iTime+surrogateModel.hShM: iTime + surrogateModel.hShM * (self.nch * self.np) + surrogateModel.hShM: surrogateModel.hShM, :]
                     JOpt, alphaOpt, nFev = self.solveOptSurrogate(surrogateModel, zRef, alpha0, z0, time)
                     if self.trySymmetricIC:
                         print('- Second attempt with inverted initial guess')
