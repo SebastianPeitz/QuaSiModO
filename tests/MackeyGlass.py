@@ -141,17 +141,17 @@ S = [0.0]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 resultCont = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, z0=z0, T=T, Q=Q, R=R, S=S)
 
 plot(z={'t': resultCont.t, 'z': resultCont.z, 'reference': reference, 'iplot': 0},
-     u={'t': resultCont.t, 'u': resultCont.u, 'iplot': 1},
-     J={'t': resultCont.t, 'J': resultCont.J, 'iplot': 2},
-     nFev={'t': resultCont.t, 'nFev': resultCont.nFev, 'iplot': 3})
+     u={'t': resultCont.t[:-1], 'u': resultCont.u, 'iplot': 1},
+     J={'t': resultCont.t[:-1], 'J': resultCont.J, 'iplot': 2},
+     nFev={'t': resultCont.t[:-1], 'nFev': resultCont.nFev, 'iplot': 3})
 
 # 2) Surrogate model, integer control computed via relaxation and sum up rounding
 MPC.typeOpt = 'SUR'
 result_SUR = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, z0=z0, T=T, Q=Q, R=R, S=S)
 
 plot(z={'t': result_SUR.t, 'z': result_SUR.z, 'reference': reference, 'iplot': 0},
-     u={'t': result_SUR.t, 'u': result_SUR.u, 'iplot': 1},
-     J={'t': result_SUR.t, 'J': result_SUR.J, 'iplot': 2},
-     nFev={'t': result_SUR.t, 'nFev': result_SUR.nFev, 'iplot': 3},
-     alpha={'t': result_SUR.t, 'alpha': result_SUR.alpha, 'iplot': 4},
-     omega={'t': result_SUR.t, 'omega': result_SUR.omega, 'iplot': 5})
+     u={'t': result_SUR.t[:-1], 'u': result_SUR.u, 'iplot': 1},
+     J={'t': result_SUR.t[:-1], 'J': result_SUR.J, 'iplot': 2},
+     nFev={'t': result_SUR.t[:-1], 'nFev': result_SUR.nFev, 'iplot': 3},
+     alpha={'t': result_SUR.t[:-1], 'alpha': result_SUR.alpha, 'iplot': 4},
+     omega={'t': result_SUR.t[:-1], 'omega': result_SUR.omega, 'iplot': 5})

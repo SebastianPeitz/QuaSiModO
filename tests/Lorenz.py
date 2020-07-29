@@ -37,6 +37,7 @@ elif method == "LSTM":
     nLag = 100 # Lag time for LSTM
     nhidden = 50 # number of hidden neurons in LSTM cell
     epochs = 20
+    batch_size = 72
 
 
 # %%
@@ -106,7 +107,7 @@ elif method == "LSTM":
     print("Use LSTM as surrogate:")
     surrogate = ClassSurrogateModel('LSTM.py', uGrid=model.uGrid, 
                                     h=nLag * model.h, dimZ=model.dimZ, 
-                                    z0=y0, nDelay=nDelay, nhidden=nhidden, epochs=epochs)
+                                    z0=y0, nDelay=nDelay, nhidden=nhidden, epochs=epochs,batch_size=batch_size)
     
 surrogate.createROM(data)
     
@@ -201,19 +202,19 @@ save_path_SUR = 'Figures_Paper/Lorenz_EDMD_SUR'
 resultCont = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S,savePath =save_path_cont)
 
 plot(z={'t': resultCont.t, 'z': np.reshape(resultCont.z[:,1],[resultCont.z.shape[0],1]), 'reference': reference, 'iplot': 0},
-      u={'t': resultCont.t, 'u': resultCont.u, 'iplot': 1},
-      J={'t': resultCont.t, 'J': resultCont.J, 'iplot': 2},
-      nFev={'t': resultCont.t, 'nFev': resultCont.nFev, 'iplot': 3})
+      u={'t': resultCont.t[:-1], 'u': resultCont.u, 'iplot': 1},
+      J={'t': resultCont.t[:-1], 'J': resultCont.J, 'iplot': 2},
+      nFev={'t': resultCont.t[:-1], 'nFev': resultCont.nFev, 'iplot': 3})
 
 # 2) Surrogate model, integer control computed via relaxation and sum up rounding
 MPC.typeOpt = 'SUR'
 result_SUR = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S,savePath=save_path_SUR)
 
 plot(z={'t': result_SUR.t, 'z': np.reshape(result_SUR.z[:,1],[result_SUR.z.shape[0],1]), 'reference': reference, 'iplot': 0},
-     u={'t': result_SUR.t, 'u': result_SUR.u, 'iplot': 1},
-     J={'t': result_SUR.t, 'J': result_SUR.J, 'iplot': 2},
-     nFev={'t': result_SUR.t, 'nFev': result_SUR.nFev, 'iplot': 3},
-     alpha={'t': result_SUR.t, 'alpha': result_SUR.alpha, 'iplot': 4},
-     omega={'t': result_SUR.t, 'omega': result_SUR.omega, 'iplot': 5})
+     u={'t': result_SUR.t[:-1], 'u': result_SUR.u, 'iplot': 1},
+     J={'t': result_SUR.t[:-1], 'J': result_SUR.J, 'iplot': 2},
+     nFev={'t': result_SUR.t[:-1], 'nFev': result_SUR.nFev, 'iplot': 3},
+     alpha={'t': result_SUR.t[:-1], 'alpha': result_SUR.alpha, 'iplot': 4},
+     omega={'t': result_SUR.t[:-1], 'omega': result_SUR.omega, 'iplot': 5})
 
 
