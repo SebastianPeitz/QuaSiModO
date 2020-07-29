@@ -39,6 +39,9 @@ def createSurrogateModel(modelData, data):
     model = dict()
     mean = np.zeros([len(X),])
     std = np.zeros([len(X),])
+
+    data_trainonline_x = list()
+    data_trainonline_y = list()
     
     for i in range(len(X)):
         
@@ -58,6 +61,9 @@ def createSurrogateModel(modelData, data):
         # Create and train model
         model[i] = create_and_train_LSTM_model(modelData,Xtrain,Ytrain,Xval,Yval,dimZ)
         model[i]._experimental_run_tf_function = True
+
+        data_trainonline_x.append([])
+        data_trainonline_y.append([])
     
     
     # Save LSTM models and important parameters
@@ -66,16 +72,21 @@ def createSurrogateModel(modelData, data):
     setattr(modelData, 'data_mean', mean)
     setattr(modelData, 'data_std', std)
 
+    setattr(modelData, 'data_trainonline_x', data_trainonline_x)
+    setattr(modelData, 'data_trainonline_y', data_trainonline_y)
+
     return modelData
 
 
-def LSTM_datasets(modelData, dataX, dataY, train_size,val_size):
+def LSTM_datasets(modelData, dataX, dataY, train_size,val_size,mean=None,std=None):
     
     dimZ = int(dataX.shape[1] / (modelData.nDelay + 1))
     dataY = dataY[:,:dimZ]
-    
-    mean = np.mean(dataX[:,0:dimZ])
-    std = np.std(dataX[:,0:dimZ])
+
+    if mean is None:
+        mean = np.mean(dataX[:,0:dimZ])
+    if std is None:
+        std = np.std(dataX[:,0:dimZ])
     
     X = np.zeros(dataX.shape)
     
@@ -101,7 +112,7 @@ def LSTM_datasets(modelData, dataX, dataY, train_size,val_size):
 
 
 def create_and_train_LSTM_model(modelData, Xtrain,Ytrain,Xval,Yval,dimZ):
-    
+
     # create model
     model = Sequential()
     model.add(LSTM(modelData.nhidden, input_shape=(Xtrain.shape[1], Xtrain.shape[2])))
@@ -109,8 +120,10 @@ def create_and_train_LSTM_model(modelData, Xtrain,Ytrain,Xval,Yval,dimZ):
     model.compile(loss='mse', optimizer='adam')
 
     # train model
-    model.fit(Xtrain, Ytrain, epochs=modelData.epochs, validation_data=(Xval,Yval), batch_size=72, verbose=2, shuffle=True)
-    
+    model.fit(Xtrain, Ytrain, epochs=modelData.epochs, validation_data=(Xval,Yval), batch_size=modelData.batch_size, verbose=2, shuffle=True)
+
+
+
     return model
 
 
@@ -138,3 +151,40 @@ def saveSurrogateModel(modelData,savePath):
     for iu in range(modelData.uGrid.shape[0]):
         modelData.LSTM_model[iu].save(savePath + '_' + str(iu))
 
+def updateSurrogateModel(modelData, z_rawData, _, iu):
+
+    current_control = int(iu[-1,0])
+
+    if current_control == -1:
+        print("uuubs")
+    print("current_control:", current_control)
+
+    test = z_rawData[::modelData.nLag, :]
+    temp = test.reshape((1, modelData.nDelay + 2, modelData.dimZ))
+    z = (temp - modelData.data_mean[current_control]) / modelData.data_std[current_control]
+
+    z0 = z[:,:-1,:]
+    z1 = z[:,-1,:]
+
+    if modelData.data_trainonline_x[current_control] == []:
+        modelData.data_trainonline_x[current_control] = z0
+        modelData.data_trainonline_y[current_control] = z1
+    else:
+        modelData.data_trainonline_x[current_control] = np.concatenate((modelData.data_trainonline_x[current_control], z0))
+        modelData.data_trainonline_y[current_control] = np.concatenate((modelData.data_trainonline_y[current_control], z1))
+
+    updatePerformed = False
+
+    if len(modelData.data_trainonline_x[current_control]) > modelData.batch_size: # modelData.batch_size:
+        Xtrain = modelData.data_trainonline_x[current_control]
+        Ytrain = modelData.data_trainonline_y[current_control]
+        modelData.LSTM_model[current_control].fit(Xtrain, Ytrain, epochs=1, batch_size=modelData.batch_size, verbose=2, shuffle=True)
+
+        #modelData.LSTM_model[current_control].fit(Xtrain, Ytrain, epochs=int(modelData.epochs/5), batch_size=modelData.batch_size, verbose=2,shuffle=True)
+        modelData.data_trainonline_x[current_control] = []
+        modelData.data_trainonline_y[current_control] = []
+
+        updatePerformed = True
+
+
+    return modelData, updatePerformed
