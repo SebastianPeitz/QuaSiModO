@@ -1100,7 +1100,9 @@ class ClassMPC:
                 self.linConstraints = LinearConstraint(A, np.zeros([self.np], dtype=float),
                                                        np.ones([self.np], dtype=float))
 
-                alpha0 = (1.0 / float(surrogateModel.nU)) * np.ones([self.np, surrogateModel.nU - 1], dtype=float)
+                # alpha0 = (1.0 / float(surrogateModel.nU)) * np.ones([self.np, surrogateModel.nU - 1], dtype=float)
+                test = int(iuInit) * np.ones([self.np, 1], dtype=int)
+                alpha0 = mapIuToAlpha(test, surrogateModel.nU)
 
             # Obtain z0 either by taking it from the surrogate model or by observing y0
             if z0 is None:
@@ -1386,7 +1388,7 @@ class ClassMPC:
     def calcJInternal(self, z, zRef, u, h, modelData=None):
         deltaZ = z[:, :self.dimZ] - zRef
         deltaU = (u[1:] - u[:-1]) / h
-        return np.sum(np.diag(deltaZ @ self.Q @ deltaZ.T) + (deltaZ @ self.L)) + np.sum(np.diag(u @ self.R @ u.T)) + \
+        return np.sum(np.diag(deltaZ @ self.Q @ deltaZ.T) + (deltaZ @ self.L).T) + np.sum(np.diag(u @ self.R @ u.T)) + \
                np.sum(np.diag(deltaU @ self.S @ deltaU.T))
         # return np.trapz(np.einsum('ij,kj,ik->i', deltaZ, self.Q, deltaZ), dx=h) + \
         #        np.trapz(np.einsum('ij,kj,ik->i', u, self.R, u), dx=h) + \
