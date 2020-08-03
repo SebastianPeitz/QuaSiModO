@@ -20,11 +20,11 @@ b = 8/3
 T = 10.0 # Time for the MPC problem
 h = 0.01  # Time step for the ODE solver, for the training data sampling and for the MPC step length
 y0 = [0.5,-0.5,1.0]  # Initial condition of the ODE
-uMin = [-80.0]  # Minimal value of the input (also defines dimU)
-uMax = [80.0]  # Maximal value of the input (also defines dimU)
+uMin = [-50.0]  # Minimal value of the input (also defines dimU)
+uMax = [50.0]  # Maximal value of the input (also defines dimU)
 
 dimZ = 3  # dimension of the observable (= dimY in the ODE case, unless iObs is passed to ClassModel)
-nGridU = 2  # number of parts the grid is split into (--> uGrid = [-2, 0, 2])
+nGridU = 1  # number of parts the grid is split into (--> uGrid = [-2, 0, 2])
 
 Ttrain = 1000  # Time for the simulation in the traing data generation
 
@@ -39,9 +39,9 @@ elif method == "LSTM":
 elif method == "ESN":
     nDelay = 0
     nLag = 5 # Lag time for LSTM
-    approx_res_size = 500
+    approx_res_size = 250
     radius = 0.9
-    sparsity = 0.99
+    sparsity = 0.5
 
 
 
@@ -130,31 +130,24 @@ surrogate.createROM(dataSet.rawData)
 start = np.random.randint(nDelay + 1, dataSet.rawData.z[0].shape[0])
 steps = 1000
 
-iu = np.random.randint(0,3,[int(steps/nLag),1])
+iu = np.random.randint(0,nGridU + 1,[int(steps/nLag),1])
 u = np.zeros([steps,1])
 for i in range(int(steps/nLag)):
     u[nLag * i :nLag * (i+1),0] = model.uGrid[iu[i,0]]
 
 
-y0_test = dataSet.rawData.z[0][start,:]
-y_ode,_, t_ode,_ = model.integrate(y0_test,u,0.0)
+y0 = dataSet.rawData.z[0][start,:]
 
-print(y0_test)
 temp = dataSet.rawData.z[0][start:start-nDelay*nLag-1:-nLag,:]
-print(temp)
-y0_test =  np.reshape(temp,[dimZ*(nDelay+1)])
-print(y0_test)
+z0 = np.reshape(temp, [dimZ*(nDelay+1)])
 
 if method == "ESN":
-    past_steps = 10
-    
-    init = dataSet.rawData.z[0][start:start-past_steps*nLag-1:-nLag,:]
-    init =  np.reshape(init,[dimZ*(past_steps+1)])
-    
-    for i in range (past_steps):
-        _, _ = surrogate.integrateDiscreteInput(init[i], -1.0 * model.h*nLag * past_steps, np.array([0]))
-    
-y_model, t_model = surrogate.integrateDiscreteInput(y0_test, 0.0, iu)
+
+    y0 = dataSet.rawData.y[-1][-1, :]
+    z0 = dataSet.rawData.z[-1][-1, :]
+
+y_model, t_model = surrogate.integrateDiscreteInput(z0, 0.0, iu)
+y_ode,_, t_ode,_ = model.integrate(y0,u,0.0)
 
     
 fig, axs = plt.subplots(nrows = 3, ncols=1, constrained_layout=True,figsize=(10, 6))

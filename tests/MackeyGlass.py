@@ -68,7 +68,7 @@ else:
 # prepare data according to the desired reduction scheme
 data = dataSet.prepareData(model, method='Y', rawData=dataSet.rawData, nLag=nLag, nDelay=0)
 
-plotPhase3D(dataSet.rawData.z[0][:, 0], dataSet.rawData.z[0][:, 2], dataSet.rawData.z[0][:, 4])
+#plotPhase3D(dataSet.rawData.z[0][:, 0], dataSet.rawData.z[0][:, 2], dataSet.rawData.z[0][:, 4])
 
 y0 = dataSet.rawData.y[0][-1, :]
 z0 = dataSet.rawData.z[0][-1, :]
@@ -93,11 +93,11 @@ zS = list()
 zF = list()
 for i in range(model.nU):
 
-    iu = i * np.ones([len(tS), 1], dtype=int)
+    iu = i * np.ones([len(tS)-1, 1], dtype=int)
     [z, tSurrogate] = surrogate.integrateDiscreteInput(z0, 0.0, iu)
     zS.append(z)
 
-    u = model.uGrid[i, 0] * np.ones([len(tF), 1], dtype=int)
+    u = model.uGrid[i, 0] * np.ones([len(tF)-1, 1], dtype=int)
     [yOpt, zOpt, tOpt, model] = model.integrate(y0, u, 0.0)
     zF.append(zOpt)
 

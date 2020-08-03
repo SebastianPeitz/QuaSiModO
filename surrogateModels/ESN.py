@@ -37,16 +37,16 @@ def createSurrogateModel(modelData, data):
         dataPrep = data.z[i][trans::modelData.nLag]
         iuPrep = data.iu[i][trans::modelData.nLag]
         
-        X.append(dataPrep[:-1,:])
-        Y.append(dataPrep[1:,:])
+        X.append(dataPrep[:-1, :])
+        Y.append(dataPrep[1:, :])
 
         if iuPrep.shape[0] == dataPrep.shape[0]:
             iuTrain.append(iuPrep[:-1,:])
         else:
             iuTrain.append(iuPrep)
     
-    mean = np.mean(np.concatenate(X,axis=0),axis=0)
-    std = np.std(np.concatenate(X,axis=0),axis=0)
+    mean = np.mean(np.concatenate(X, axis=0), axis=0)
+    std = np.std(np.concatenate(X, axis=0), axis=0)
 
     # create instance of ESN Class
     ESN = ESNControl(dimZ, n_control, dimZ, 
@@ -63,14 +63,14 @@ def createSurrogateModel(modelData, data):
       
         
     # concatenate all lists of trainingdata   
-    Y = np.concatenate(Y,axis=0)    
-    iuTrain = np.concatenate(iuTrain,axis=0)     
-    states = np.concatenate(states,axis=1)    
+    Y = np.concatenate(Y, axis=0)
+    iuTrain = np.concatenate(iuTrain, axis=0)
+    states = np.concatenate(states, axis=1)
     
     # train output layer of ESN with states and Y
     ESN.train(states, iuTrain, Y)
 
-    state = np.reshape(states[:,-1], [states.shape[0],1])#np.zeros([states.shape[0],1])
+    state = np.reshape(states[:, -1], [states.shape[0], 1])   #np.zeros([states.shape[0],1])
     
     # Save ESN instance and important parameters
     setattr(modelData, 'ESN', ESN)
@@ -83,10 +83,10 @@ def createSurrogateModel(modelData, data):
 def set_state(modelData, state, t):
     step = int(np.round(t / modelData.h))
     if modelData.state.shape[1] < step + 1:
-        modelData.state = np.concatenate((modelData.state, np.zeros([modelData.ESN.n_reservoir,1])),axis=1)
-    modelData.state[:, step] = state[:,0]
-    
+        modelData.state = np.concatenate((modelData.state, np.zeros([modelData.ESN.n_reservoir, 1])), axis=1)
+    modelData.state[:, step] = state[:, 0]
+
+
 def get_state(modelData, t):
     step = int(np.round(t / modelData.h))
-    return np.reshape(modelData.state[:,step],[modelData.ESN.n_reservoir,1])
-    
+    return np.reshape(modelData.state[:, step], [modelData.ESN.n_reservoir, 1])

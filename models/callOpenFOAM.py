@@ -4,7 +4,7 @@ from numpy import concatenate
 
 def simulateModel(y0, t0, u, model):
     nt = u.shape[0]
-    T = t0 + (nt - 1) * model.h
+    T = t0 + nt * model.h
 
     print('Solving model via OpenFOAM from t = {:.2f} to t = {:.2f}'.format(t0, T))
 

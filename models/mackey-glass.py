@@ -104,8 +104,8 @@ def simulateModel(y0, t0, u, model):
 
     ny = len(y0)
     nt = u.shape[0]
-    T = (nt - 1) * model.h
-    t = np.linspace(0.0, T, nt) + t0
+    T = nt * model.h
+    t = np.linspace(0, T, nt+1) + t0
 
     ty = np.linspace(t0 - tau, t0, ny)
     f = scipy.interpolate.interp1d(ty, y0, fill_value="extrapolate")
@@ -117,24 +117,24 @@ def simulateModel(y0, t0, u, model):
         return [f(t_)]
 
     def control(t_):
-        return u[len(t[t <= t_]) - 1]
+        return u[min(len(t[t <= t_]) - 1, nt-1)]
 
     def rhs(y_, t_):
         return [beta * y_(t_ - tau)[0] / (1.0 + np.power(y_(t_ - tau)[0], eta)) - gamma * y_(t_)[0] + control(t_)]
     # rhs = lambda y_, t_: beta * y_(t_ - tau) / (1.0 + np.power(y_(t_ - tau), eta)) - gamma * y_(t_) + control(t_)
 
     y = ddeint(rhs, iniVal, t)
-    yAll = np.concatenate((y0, y[1:, 0]), axis=0)
+    yAll = np.concatenate((y0, y[1:,0]), axis=0)
     z = np.zeros([nt, model.dimZ], dtype=float)
     for i in range(model.dimZ - 1):
         # z[:, i] = yAll[i * nLag:-(model.dimZ - i - 1) * nLag]
-        z[:, -(i + 1)] = yAll[int(round(i * nLag_float)):-int(round((model.dimZ - i - 1) * nLag_float))]
+        z[:, -(i + 1)] = yAll[int(round(i * nLag_float)) + 1:-int(round((model.dimZ - i - 1) * nLag_float))]
     # z[:, -1] = yAll[(model.dimZ - 1) * nLag:]
-    z[:, 0] = yAll[int(tau / model.h):]
+    z[:, 0] = yAll[int(tau / model.h) + 1:]
 
     y = np.zeros([nt, ny], dtype=float)
     for i in range(ny - 1):
-        y[:, i] = yAll[i: -ny + i + 1]
-    y[:, -1] = yAll[(ny - 1):]
+        y[:, i] = yAll[i + 1: -ny + i + 1]
+    y[:, -1] = yAll[(ny - 1) + 1:]
 
-    return y, z, t, model
+    return y, z, t[1:], model
