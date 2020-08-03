@@ -23,25 +23,25 @@ def simulateModel(y0, t0, u, model):
 
     z = list()
     if model.OF.obs.flagForceCoeffs:
-        [z1, t1] = model.OF.readForces(t0, T, model.h)
+        [z1, t1] = model.OF.readForces(t0 + model.h, T, model.h)
         z.append(z1)
     if model.OF.obs.flagProbes:
-        [z1, t1] = model.OF.readProbes(t0, T, model.h)
+        [z1, t1] = model.OF.readProbes(t0 + model.h, T, model.h)
         z.append(z1)
     if model.OF.obs.flagBoundaries:
         if model.OF.nProc > 1:
             os.system(
                 'bash -c "export LD_LIBRARY_PATH={}; {}runReconstructPar {} {} {} {}"'.format(
                     model.OF.pathLib, model.OF.pathOFOut, model.OF.pathOFOut, t0, T, model.OF.pathOFOut))
-        [z1, t1] = model.OF.readBoundaries(t0, T, model.h)
+        [z1, t1] = model.OF.readBoundaries(t0 + model.h, T, model.h)
         z.append(z1)
     if model.OF.obs.flagFullState:
-        [z1, t1] = model.OF.readSolution(t0, T, model.h)
+        [z1, t1] = model.OF.readSolution(t0 + model.h, T, model.h)
         z.append(z1)
     z = concatenate(z, axis=1)
 
     if model.OF.obs.writeY:
-        y, t = model.OF.readSolution(t0, T, model.h)
+        y, t = model.OF.readSolution(t0 + model.h, T, model.h)
     else:
         y = []
         t = t1
