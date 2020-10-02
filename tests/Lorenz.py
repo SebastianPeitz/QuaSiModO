@@ -10,18 +10,19 @@ import matplotlib.pyplot as plt
 # Choose method and set parameters
 # -------------------------------------------------------------------------------------------------------------------- #
 
-method = "LSTM"
+method = "EDMD"
 
-sigma = 10.0 # Paramters for Lorenz system
+sigma = 10.0  # Paramters for Lorenz system
 r = 28.0
-b = 8/3
+b = 8 / 3
 
-
-T = 20.0 # Time for the MPC problem
+T = 20.0  # Time for the MPC problem
 h = 0.0005  # Time step for the ODE solver, for the training data sampling and for the MPC step length
-y0 = [0.5,-0.5,1.0]  # Initial condition of the ODE
-uMin = [-50.0]  # Minimal value of the input (also defines dimU)
-uMax = [50.0]  # Maximal value of the input (also defines dimU)
+y0 = [0.5, -0.5, 1.0]  # Initial condition of the ODE
+# uMin = [-50.0]  # Minimal value of the input (also defines dimU)
+# uMax = [50.0]  # Maximal value of the input (also defines dimU)
+uMin = [0.0]  # Minimal value of the input (also defines dimU)
+uMax = [np.pi]  # Maximal value of the input (also defines dimU)
 
 dimZ = 3  # dimension of the observable (= dimY in the ODE case, unless iObs is passed to ClassModel)
 nGridU = 1  # number of parts the grid is split into (--> uGrid = [-2, 0, 2])
@@ -30,30 +31,30 @@ if method == "EDMD":
     Ttrain = 100  # Time for the simulation in the traing data generation
     nLag = 100  # Lag time for EDMD
     nMonomials = 3  # Max order of monomials for EDMD
-    nDelay = 0 # Number of Delay steps for EDMD (EDMD seems to work worse with delay)
+    nDelay = 0  # Number of Delay steps for EDMD (EDMD seems to work worse with delay)
 elif method == "LSTM":
     Ttrain = 1000  # Time for the simulation in the traing data generation
-    nDelay = 10 # Number of Delay steps for LSTM (LSTM needs a delay)
-    nLag = 100 # Lag time for LSTM
-    nhidden = 50 # number of hidden neurons in LSTM cell
+    nDelay = 10  # Number of Delay steps for LSTM (LSTM needs a delay)
+    nLag = 100  # Lag time for LSTM
+    nhidden = 50  # number of hidden neurons in LSTM cell
     epochs = 20
     batch_size = 72
 
 
 # %%
-    
+
 # -------------------------------------------------------------------------------------------------------------------- #
 # ODE: Define right-hand side as a a function of the state y and the control u
 # -------------------------------------------------------------------------------------------------------------------- #
 def rhs(y_, u_):
-    
-    y = np.zeros([3,]);
+    y = np.zeros([3, ])
 
     y[0] = sigma * (y_[1] - y_[0])
-    y[1] = r * y_[0] - y_[0] * y_[2] - y_[1] + u_   #50 * np.cos(u_);
-    y[2] = y_[0] * y_[1]  - b * y_[2]    
-    
+    y[1] = r * y_[0] - y_[0] * y_[2] - y_[1] + 50.0 * np.cos(u_);
+    y[2] = y_[0] * y_[1] - b * y_[2]
+
     return y
+
 
 # %%
 
@@ -74,10 +75,10 @@ model = ClassModel(rhs, h=h, uMin=uMin, uMax=uMax, dimZ=dimZ, typeUGrid='cube', 
 dataSet = ClassControlDataSet(h=model.h, T=Ttrain)
 
 # Create a sequence of controls
-#a) piecewise constant than sort training data according to control input
-uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=2*nLag, nhMax=4*nLag)
+# a) piecewise constant than sort training data according to control input
+uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=2 * nLag, nhMax=4 * nLag)
 
-#b) Sample data for every control input 
+# b) Sample data for every control input
 # uTrain = None
 # iuTrain = None
 # for i in range(nGridU + 1):
@@ -98,19 +99,19 @@ data = dataSet.prepareData(model, method='Y', rawData=dataSet.rawData, nLag=nLag
 
 if method == "EDMD":
 
-    surrogate = ClassSurrogateModel('EDMD.py', uGrid=model.uGrid, 
-                                    h=nLag * model.h, dimZ=model.dimZ, 
-                                    z0=y0, nDelay=nDelay, nLag=nLag, 
+    surrogate = ClassSurrogateModel('EDMD.py', uGrid=model.uGrid,
+                                    h=nLag * model.h, dimZ=model.dimZ,
+                                    z0=y0, nDelay=nDelay, nLag=nLag,
                                     nMonomials=nMonomials, epsUpdate=0.05)
-    
+
 elif method == "LSTM":
     print("Use LSTM as surrogate:")
-    surrogate = ClassSurrogateModel('LSTM.py', uGrid=model.uGrid, 
-                                    h=nLag * model.h, dimZ=model.dimZ, 
-                                    z0=y0, nDelay=nDelay, nhidden=nhidden, epochs=epochs,batch_size=batch_size)
-    
+    surrogate = ClassSurrogateModel('LSTM.py', uGrid=model.uGrid,
+                                    h=nLag * model.h, dimZ=model.dimZ,
+                                    z0=y0, nDelay=nDelay, nhidden=nhidden, epochs=epochs, batch_size=batch_size)
+
 surrogate.createROM(data)
-    
+
 # %% 
 
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -136,7 +137,7 @@ surrogate.createROM(data)
 # y0_test =  np.reshape(temp,[dimZ*(nDelay+1)])
 # y_model, t_model = surrogate.integrateDiscreteInput(y0_test, 0.0, iu)
 
-    
+
 # fig, axs = plt.subplots(nrows = 3, ncols=1, constrained_layout=True,figsize=(10, 6))
 # plt.title("Test performance", fontsize=12)
 # for i in range(3):
@@ -148,9 +149,9 @@ surrogate.createROM(data)
 # plt.xlabel(r"$t$", fontsize=12) 
 
 # # plt.savefig("Figures/test_prediction_surrogate.pdf", bbox_inches="tight")
-    
+
 # plt.show()
- 
+
 # %%
 
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -162,27 +163,24 @@ iRef = [1]
 
 TRef = T + 2.0
 nRef = int(round(TRef / h)) + 1
-p_y = np.sqrt(b * (r -1))
+p_y = np.sqrt(b * (r - 1))
 zRef = p_y * np.ones([nRef, 1], dtype=float)
 
-## Sinus trajectory:
-tRef = np.array(np.linspace(0.0, T, nRef))
-zRef[:, 0] = 1.5 * np.sin(2.0 * tRef * 2.0 * np.pi / TRef)
+# Sine trajectory:
+tRef = np.array(np.linspace(0.0, TRef, nRef))
+zRef[:, 0] = 1.5 * np.sin(2.0 * tRef * 2.0 * np.pi / T)
 
-## Piecewise constant
-# zRef[:, 0] = 2.0
-# tRef = np.array(np.linspace(0.0, T, nRef))
-# zRef[np.where(tRef >= 10.0/10*2), 0] = 1.0
-# zRef[np.where(tRef >= 20.0/10*2), 0] = -1.0
-# zRef[np.where(tRef >= 30.0/10*2), 0] = 0.5
-# zRef[np.where(tRef >= 40.0/10*2), 0] = -1.0
+# Piecewise constant
+zRef[:, 0] = 0.0
+tRef = np.array(np.linspace(0.0, TRef, nRef))
+zRef[np.where(tRef <= 15.0), 0] = -10.0
+zRef[np.where(tRef <= 10.0), 0] = 5.0
+zRef[np.where(tRef <= 5.0), 0] = 0.0
 
 reference = ClassReferenceTrajectory(model, T=TRef, zRef=zRef, iRef=iRef)
 
-
 # Create class for the MPC problem
 MPC = ClassMPC(np=3, nc=1, typeOpt='continuous', scipyMinimizeMethod='SLSQP')  # scipyMinimizeMethod=
-
 
 # Weights for the objective function
 Q = [0.0, 1.0, 0.0]  # reference tracking: (z - deltaZ)^T * Q * (z - deltaZ)
@@ -199,22 +197,22 @@ save_path_cont = 'Figures_Paper/Lorenz_EDMD_cont'
 save_path_SUR = 'Figures_Paper/Lorenz_EDMD_SUR'
 
 # 1) Surrogate model, continuous input obtained via relaxation of the integer input in uGrid
-resultCont = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S,savePath =save_path_cont)
+resultCont = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S, savePath=save_path_cont)
 
-plot(z={'t': resultCont.t, 'z': np.reshape(resultCont.z[:,1],[resultCont.z.shape[0],1]), 'reference': reference, 'iplot': 0},
-      u={'t': resultCont.t[:-1], 'u': resultCont.u, 'iplot': 1},
-      J={'t': resultCont.t[:-1], 'J': resultCont.J, 'iplot': 2},
-      nFev={'t': resultCont.t[:-1], 'nFev': resultCont.nFev, 'iplot': 3})
+plot(z={'t': resultCont.t, 'z': np.reshape(resultCont.z[:, 1], [resultCont.z.shape[0], 1]), 'reference': reference,
+        'iplot': 0},
+     u={'t': resultCont.t, 'u': resultCont.u, 'iplot': 1},
+     J={'t': resultCont.t, 'J': resultCont.J, 'iplot': 2},
+     nFev={'t': resultCont.t, 'nFev': resultCont.nFev, 'iplot': 3})
 
 # 2) Surrogate model, integer control computed via relaxation and sum up rounding
 MPC.typeOpt = 'SUR'
-result_SUR = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S,savePath=save_path_SUR)
+result_SUR = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S, savePath=save_path_SUR)
 
-plot(z={'t': result_SUR.t, 'z': np.reshape(result_SUR.z[:,1],[result_SUR.z.shape[0],1]), 'reference': reference, 'iplot': 0},
-     u={'t': result_SUR.t[:-1], 'u': result_SUR.u, 'iplot': 1},
-     J={'t': result_SUR.t[:-1], 'J': result_SUR.J, 'iplot': 2},
-     nFev={'t': result_SUR.t[:-1], 'nFev': result_SUR.nFev, 'iplot': 3},
-     alpha={'t': result_SUR.t[:-1], 'alpha': result_SUR.alpha, 'iplot': 4},
-     omega={'t': result_SUR.t[:-1], 'omega': result_SUR.omega, 'iplot': 5})
-
-
+plot(z={'t': result_SUR.t, 'z': np.reshape(result_SUR.z[:, 1], [result_SUR.z.shape[0], 1]), 'reference': reference,
+        'iplot': 0},
+     u={'t': result_SUR.t, 'u': result_SUR.u, 'iplot': 1},
+     J={'t': result_SUR.t, 'J': result_SUR.J, 'iplot': 2},
+     nFev={'t': result_SUR.t, 'nFev': result_SUR.nFev, 'iplot': 3},
+     alpha={'t': result_SUR.t, 'alpha': result_SUR.alpha, 'iplot': 4},
+     omega={'t': result_SUR.t, 'omega': result_SUR.omega, 'iplot': 5})

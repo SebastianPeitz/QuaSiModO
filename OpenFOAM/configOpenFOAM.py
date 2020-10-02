@@ -1,8 +1,13 @@
 def getPaths():
-    pathOF = '/home/speitz/OpenFOAM/OpenFOAM-v1912/'
+    pathOF = '/home/speitz/OpenFOAM/OpenFOAM-v1912/'  \
+    # pathOF = '/cm/shared/apps/pc2/EB-SW/software/cae/OpenFOAM/6-foss-2018b/OpenFOAM-6/'
+
     pathThirdParty = '/home/speitz/OpenFOAM/ThirdParty-v1912/'
 
-    return pathOF, pathThirdParty
+    additionalCommands = None
+    # additionalCommands = ['module add cae/OpenFOAM/6-foss-2018b']
+
+    return pathOF, pathThirdParty, additionalCommands
 
 
 def getSolver():

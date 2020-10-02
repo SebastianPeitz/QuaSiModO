@@ -22,21 +22,8 @@ def createSurrogateModel(modelData, data):
     X = data['X']
     Y = data['Y']
     for i in range(len(X)):
-        # Ki, _, _ = algorithms.edmd(X[i].T, Y[i].T, modelData.psi, operator='K', evs=1)
         PsiX = psi(X[i].T)
         PsiY = psi(Y[i].T)
-        # if PsiX.shape[0] > 1e4:
-        #     if i == 0:
-        #         chunkSize = 500
-        #         nChunks = int(np_.ceil(PsiX.shape[0]/chunkSize))
-        #     Gi = np_.zeros([PsiX.shape[0], PsiX.shape[0]], dtype=float)
-        #     Ai = np_.zeros([PsiX.shape[0], PsiX.shape[0]], dtype=float)
-        #     for i1 in range(nChunks):
-        #         print(i1)
-        #         in1, in2 = i1 * chunkSize, min((i1 + 1) * chunkSize, PsiX.shape[0])
-        #         Gi[in1: in2, :] = PsiX[in1: in2, :] @ PsiX.T
-        #         Ai[in1: in2, :] = PsiX[in1: in2, :] @ PsiY.T
-        # else:
         Gi = PsiX @ PsiX.T
         Ai = PsiX @ PsiY.T
 

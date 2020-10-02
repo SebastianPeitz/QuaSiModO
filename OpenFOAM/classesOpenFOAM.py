@@ -51,7 +51,7 @@ class ClassOpenFOAM:
     """
 
     # Fixed paths to OpenFOAM
-    pathOF, pathThirdParty = configOpenFOAM.getPaths()
+    pathOF, pathThirdParty, additionalCommands = configOpenFOAM.getPaths()
     platform, platformThirdParty = configOpenFOAM.getPlatform()
     skipRowsForceCoeffs = configOpenFOAM.getSkipRows()
 
@@ -265,6 +265,9 @@ class ClassOpenFOAM:
     def writeRunGrad(self, dimY, T):
 
         fout = open(self.pathOFOut + 'runGrad', 'w')
+        if self.additionalCommands is not None:
+            for i in range(len(self.additionalCommands)):
+                fout.write(self.additionalCommands[i] + '\n')
         fout.write('source ' + self.pathOF + 'etc/bashrc\n')
         strOut = 'postProcess -dict dictGrad -fields "('
         for i in range(dimY):
@@ -316,6 +319,9 @@ class ClassOpenFOAM:
     def writeRunFoam(self):
 
         fout = open(self.pathOFOut + 'runFoam', 'w')
+        if self.additionalCommands is not None:
+            for i in range(len(self.additionalCommands)):
+                fout.write(self.additionalCommands[i] + '\n')
         fout.write('source ' + self.pathOF + 'etc/bashrc\n')
         fout.write('if [ $# -lt 2 ]\n')
         fout.write('then \n')
@@ -336,6 +342,9 @@ class ClassOpenFOAM:
     def writeRunWCC(self):
 
         fout = open(self.pathOFOut + 'runWCC', 'w')
+        if self.additionalCommands is not None:
+            for i in range(len(self.additionalCommands)):
+                fout.write(self.additionalCommands[i] + '\n')
         fout.write('source ' + self.pathOF + 'etc/bashrc\n')
         fout.write('postProcess -func writeCellCentres -case $1\n')
         fout.write('postProcess -func writeCellVolumes -case $1\n')
@@ -346,6 +355,9 @@ class ClassOpenFOAM:
     def writeDecomposePar(self):
 
         fout = open(self.pathOFOut + 'runDP', 'w')
+        if self.additionalCommands is not None:
+            for i in range(len(self.additionalCommands)):
+                fout.write(self.additionalCommands[i] + '\n')
         fout.write('source ' + self.pathOF + 'etc/bashrc\n')
         fout.write('decomposePar -case $1\n')
         fout.close()
@@ -409,6 +421,9 @@ class ClassOpenFOAM:
     def writeReoncstructPar(self, fields='dU'):
 
         fout = open(self.pathOFOut + 'runReconstructPar', 'w')
+        if self.additionalCommands is not None:
+            for i in range(len(self.additionalCommands)):
+                fout.write(self.additionalCommands[i] + '\n')
         fout.write('source ' + self.pathOF + 'etc/bashrc\n')
         fout.write('reconstructPar -case $1 -time $2:$3 -fields \'(' + fields + ')\' > $4/logRP\n')
         fout.close()

@@ -87,10 +87,10 @@ def createSurrogateModel(modelData, data):
     for i in range(nSys):
         yMean.append(np.zeros([2 * modelData.of.mesh.nc, 1], dtype=float))
 
-        if flagUseShift:
-            yMean[-1][:, 0] = np.mean(Y[i], axis=0)
-        else:
-            yMean[-1] = modelData.yBase
+        # if flagUseShift:
+        yMean[-1][:, 0] = np.mean(Y[i], axis=0)
+        # else:
+        #     yMean[-1] = modelData.yBase
 
         for j in range(Y[i].shape[0]):
             Y[i][j, :] -= yMean[i][:, 0]
@@ -195,7 +195,9 @@ def createSurrogateModel(modelData, data):
     setattr(modelData, 'C', C)
     setattr(modelData, 'M2D', M2D)
     setattr(modelData, 'Psi', Psi)
+    setattr(modelData, 'dPsi', dPsi)
     setattr(modelData, 'yMean', yMean)
+    setattr(modelData, 'dyMean', dyMean)
 
     return modelData
 

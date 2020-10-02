@@ -101,6 +101,7 @@ class ClassModel:
             self.rhs = modelFileOrClass
             self.model = self.simulateODE
             self.observable = self.observeODE
+            self.calcJ = None
         else:
 
             # 2) the name of a python file placed in the "models" folder
@@ -120,6 +121,11 @@ class ClassModel:
             else:
                 self.observable = None
 
+            if hasattr(moduleModel, 'calcJ'):
+                self.calcJ = moduleModel.calcJ
+            else:
+                self.calcJ = None
+
     # calls the model that has been set up in __init__
     def integrate(self, y0, u, t0):
         return self.model(y0, t0, u, self)
@@ -127,18 +133,18 @@ class ClassModel:
     # integrator
     def RK4(self, y0, t0, u):
         nt = u.shape[0]
-        T = nt * self.h
-        t = np.linspace(self.h, T, nt) + t0
-        y = np.empty([nt+1, len(y0)], dtype=float)
+        T = (nt - 1) * self.h
+        t = np.linspace(0.0, T, nt) + t0
+        y = np.empty([nt, len(y0)], dtype=float)
         y[0, :] = y0
-        for i in range(0, nt):
+        for i in range(nt - 1):
             k1 = self.rhs(y[i, :], u[i, :])
             k2 = self.rhs(y[i, :] + 0.5 * self.h * k1, u[i, :])
             k3 = self.rhs(y[i, :] + 0.5 * self.h * k2, u[i, :])
             k4 = self.rhs(y[i, :] + self.h * k3, u[i, :])
             y[i + 1, :] = y[i, :] + self.h / 6.0 * (k1 + 2.0 * (k2 + k3) + k4)
 
-        return y[1:,:], t
+        return y, t
 
     # simulation model for ODEs
     def simulateODE(self, y0, t0, u, model):
@@ -232,6 +238,14 @@ class ClassModel:
 
         self.uGrid = uGrid
         return uGrid
+
+    def mapAlphaToU(self, alpha):
+        u = np.zeros([alpha.shape[0], self.dimU], dtype=float)
+        for i in range(alpha.shape[0]):
+            for iu in range(self.nU - 1):
+                u[i, :] += alpha[i, iu] * self.uGrid[iu, :]
+            u[i, :] += (1.0 - np.sum(alpha[i, :])) * self.uGrid[-1, :]
+        return u
 
 
 class Class1DGrid:
@@ -354,7 +368,7 @@ class ClassControlDataSet:
         print('Creating control sequence with h = ' + str(h) + '; T = ' + str(T) + '; uGrid = ' + str(uGrid) +
               '; nhMin = ' + str(nhMin) + '; nhMax = ' + str(nhMax) + '; typeSequence = ' + str(typeSequence))
 
-        nt = int(T / h)
+        nt = int(T / h + 1)
 
         if u is None:
             if iu is not None:
@@ -430,7 +444,6 @@ class ClassControlDataSet:
             iu_[:] = mapUToIu(uConst, model.uGrid)
             u_ = mapIuToU(iu_, model.uGrid)
 
-
         u.append(u_)
         iu.append(iu_)
         return u, iu
@@ -483,12 +496,11 @@ class ClassControlDataSet:
         for i in range(nU):
             for j in range(nIC):
                 [y, z, t, _] = model.integrate(y0[j], u[i], 0.0)
-                u_ = u[i][1:,:] # Since we do not have y0 and z0 in y nd z
                 yAll.append(y)
                 zAll.append(z)
                 tAll.append(t)
-                uAll.append(u_)
-                iuAll.append(mapUToIu(u_, model.uGrid))
+                uAll.append(u[i])
+                iuAll.append(mapUToIu(u[i], model.uGrid))
 
         self.rawData = ClassRawData(y=yAll, z=zAll, t=tAll, u=uAll, iu=iuAll)
 
@@ -685,10 +697,10 @@ def arrayToList(x):
         y = list()
         if x[0,...].shape == ():
             for i in range(x.shape[0]):
-                y.append(x[i,...].item())
+                y.append(x[i, ...].item())
         else:
             for i in range(x.shape[0]):
-                y.append(x[i,...])
+                y.append(x[i, ...])
         
         return y
     else:
@@ -734,6 +746,7 @@ class ClassSurrogateModel:
     integrate = None
     timeTMap = None
     createSurrogateModel = None
+    saveSurrogateModel = None
     updateSurrogateModel = None
     calcJ = None
 
@@ -847,12 +860,12 @@ class ClassSurrogateModel:
             exit(1)
 
     def integrateRelaxedTimeTMap(self, z0, t0, alpha):
-        z = np.zeros([alpha.shape[0] + 1, self.dimZ * (1 + self.nDelay)], dtype=float)
+        z = np.zeros([alpha.shape[0], self.dimZ * (1 + self.nDelay)], dtype=float)
         z[0, :] = z0
-        zPlus = np.zeros([1, self.dimZ * (1 + self.nDelay)], dtype=float)
+        zPlus = np.zeros([self.dimZ * (1 + self.nDelay)], dtype=float)
         time = t0
-        for i in range(alpha.shape[0]):
-            zPlus[0, :] = 0.0
+        for i in range(alpha.shape[0] - 1):
+            zPlus[:] = 0.0
             for iu in range(self.nU - 1):
                 ziu, _, _ = self.timeTMap(z[i, :], time, iu, self.modelData)
                 zPlus += alpha[i, iu] * ziu
@@ -861,17 +874,17 @@ class ClassSurrogateModel:
             z[i + 1, :] = zPlus
             time = time + self.h
 
-        return z[1:,:]
+        return z
 
     def integrateDiscreteInput(self, z0, t0, iu):
-        z = np.zeros([iu.shape[0] + 1, self.dimZ * (1 + self.nDelay)], dtype=float)
-        t = np.linspace(self.h, iu.shape[0] * self.h, iu.shape[0]) + t0
+        z = np.zeros([iu.shape[0], self.dimZ * (1 + self.nDelay)], dtype=float)
+        t = np.linspace(0.0, (iu.shape[0] - 1) * self.h, iu.shape[0]) + t0
         z[0, :] = z0
         ti = t0
         for i in range(iu.shape[0] - 1):
             z[i + 1, :], ti, self.modelData = self.timeTMap(z[i, :], ti, iu[i, 0], self.modelData)
 
-        return z[1:,:], t
+        return z, t
 
     def mapAlphaToU(self, alpha):
         u = np.zeros([alpha.shape[0], self.dimU], dtype=float)
@@ -1001,7 +1014,7 @@ class ClassMPC:
         self.calcJ = self.calcJInternal
 
     def run(self, model, reference, surrogateModel=None, y0=None, z0=None, T=None, Q=[1.0], L=[0.0], R=[0.0], S=[0.0],
-            savePath=None, updateSurrogate=False, trySymmetricIC=False, iuInit=0):
+            savePath=None, updateSurrogate=False, iuInit=0):
         """ClassMPC.run
 
         This function solves the MPC problem over the time interval [0, T] by sequentially solving the following
@@ -1027,8 +1040,6 @@ class ClassMPC:
         11) savePath (type string): If provided, then the results are stored in the prescribed file after each iteration
         12) updateSurrogate (default: False): If true AND "createSurrogateModel(modelData, data)" is given in the
             surrogate model file, then the model is updated in each MPC loop
-        13) trySymmetricIC (default: False): For problems with symmetries, a second optimization problem can be solved
-            where the initial guess is multiplied by -1. The winner is then selected
 
         Output
         1) result (type ClassResult)
@@ -1063,7 +1074,6 @@ class ClassMPC:
         self.L = transformToVector(L, model.dimZ)
         self.R = transformToMatrix(R, model.dimU)
         self.S = transformToMatrix(S, model.dimU)
-        self.trySymmetricIC = trySymmetricIC
 
         nt = int(np.round(T / model.h))
 
@@ -1080,8 +1090,8 @@ class ClassMPC:
             result = ClassResult(self.typeOpt, nt, surrogateModel.dimU, model.nU, dimZ=surrogateModel.dimZ,
                                  flagSurrogate=True)
 
-            if surrogateModel.calcJ is not None:
-                self.calcJ = surrogateModel.calcJ
+            if model.calcJ is not None:
+                self.calcJ = model.calcJ
 
             if self.typeOpt == 'combinatorial':
                 uTmp = np.zeros([surrogateModel.nU, 1], dtype=int)
@@ -1131,7 +1141,6 @@ class ClassMPC:
                 zInit = np.concatenate(([z0], zInit), axis=0)
                 tInit = np.concatenate((t0, tInit), axis=0)
 
-
                 z0 = stackZ0(zInit, surrogateModel)
                 if len(yInit) > 0:
                     y0 = yInit[iTime, :]
@@ -1147,12 +1156,12 @@ class ClassMPC:
                     result.add(0, model.writeY, 0, None, np.reshape(z0, [1, z0.shape[0]]), np.zeros((1.0,)),
                                None, None, None, None, init=True)
 
-            alphaOpt2, omegaOpt2 = None, None
+            alphaOptC, omegaOptC = None, None
 
             # while time < T - self.np * model.h:
             while iTime <= nt - self.nc * surrogateModel.hShM:
 
-                print('t = {:.2f} sec: Solving optimization problem'.format(time))
+                print('t = {:.4f} sec: Solving optimization problem'.format(time))
 
                 # Solve optimization problem
                 if self.typeOpt == 'combinatorial':
@@ -1160,82 +1169,59 @@ class ClassMPC:
                     nFev = surrogateModel.nU ** self.np
                     for iuu in itertools.product(uTmp, repeat=self.np):
                         iu = np.stack(iuu)
-                        zRef = reference.z[iTime +surrogateModel.hShM: iTime + surrogateModel.hShM * (self.nch * self.np) + surrogateModel.hShM: surrogateModel.hShM, :]
+                        zRef = reference.z[iTime: iTime + surrogateModel.hShM * (self.nch * self.np) +
+                                                  surrogateModel.hShM: surrogateModel.hShM, :]
                         J = self.objectiveSurrogate(surrogateModel, zRef, mapIuToAlpha(iu, model.nU), z0, time)
                         if J < JOpt:
                             JOpt = J
                             iuOpt = iu
 
                     uOpt = mapIuToU(iuOpt, surrogateModel.uGrid)
-
-                    uOpt2 = uOpt[:self.nc + 1, :]
-                    iuOpt2 = iuOpt[:self.nc, :]
-                    if self.nch * surrogateModel.hShM > 1:
-                        uOpt2 = self.repeatControl(uOpt2, self.nch * surrogateModel.hShM)
-                        iuOpt2 = self.repeatControl(iuOpt2, self.nch * surrogateModel.hShM)
+                    uOptC = self.repeatControl(uOpt[:self.nc, :], self.nch * surrogateModel.hShM)
+                    iuOptC = self.repeatControl(iuOpt[:self.nc, :], self.nch * surrogateModel.hShM)
 
                 else:
-                    zRef = reference.z[iTime+surrogateModel.hShM: iTime + surrogateModel.hShM * (self.nch * self.np) + surrogateModel.hShM: surrogateModel.hShM, :]
+                    zRef = reference.z[iTime: iTime + surrogateModel.hShM * (self.nch * self.np) +
+                                              surrogateModel.hShM: surrogateModel.hShM, :]
                     JOpt, alphaOpt, nFev = self.solveOptSurrogate(surrogateModel, zRef, alpha0, z0, time)
-                    if self.trySymmetricIC:
-                        print('- Second attempt with inverted initial guess')
-                        JOpt2, alphaOpt2, nFev2 = self.solveOptSurrogate(surrogateModel, zRef, reversePercentage(alphaOpt), z0, time)
-                        if JOpt2 < JOpt:
-                            print('  Second attempt supersedes the first one: {} < {}'.format(JOpt2, JOpt))
-                            JOpt, alphaOpt, nFev = JOpt2, alphaOpt2, nFev2
-                        else:
-                            print('- Second attempt is worse than the first one: {} > {}'.format(JOpt2, JOpt))
+
+                    alphaOptC = self.repeatControl(alphaOpt[:self.nc, :], self.nch * surrogateModel.hShM)
 
                     if self.typeOpt == 'SUR':
 
-                        alphaOpt2 = alphaOpt[:self.nc, :]
-                        if self.nch * surrogateModel.hShM > 1:
-                            alphaOpt2 = self.repeatControl(alphaOpt2, self.nch * surrogateModel.hShM)
-
-                        iuOpt2, omegaOpt2 = sumUpRounding(alphaOpt2, result.alpha[:iTime, :], result.omega[:iTime, :],
+                        iuOptC, omegaOptC = sumUpRounding(alphaOptC, result.alpha[:iTime, :], result.omega[:iTime, :],
                                                           surrogateModel.nU)
-                        uOpt2 = surrogateModel.mapAlphaToU(omegaOpt2[:, :-1])
+                        uOptC = surrogateModel.mapAlphaToU(omegaOptC[:, :-1])
 
                     elif self.typeOpt == 'SUR_coarse':
 
-                        alphaOpt2 = alphaOpt[:self.nc, :]
-                        if self.nch * surrogateModel.hShM > 1:
-                            alphaOpt2 = self.repeatControl(alphaOpt2, self.nch * surrogateModel.hShM)
-
-                        iuOpt2, omegaOpt2 = sumUpRoundingCoarse(alphaOpt2, result.alpha[:iTime, :],
+                        iuOptC, omegaOptC = sumUpRoundingCoarse(alphaOptC, result.alpha[:iTime, :],
                                                                 result.omega[:iTime, :], surrogateModel.nU,
                                                                 self.nch * surrogateModel.hShM)
-                        uOpt2 = surrogateModel.mapAlphaToU(omegaOpt2[:, :-1])
+                        uOptC = surrogateModel.mapAlphaToU(omegaOptC[:, :-1])
 
                     else:
-                        uOpt = surrogateModel.mapAlphaToU(alphaOpt)
-                        iuOpt = mapUToIu(uOpt, surrogateModel.uGrid)
-                        uOpt2 = uOpt[:self.nc, :]
-                        iuOpt2 = iuOpt[:self.nc, :]
-                        alphaOpt2 = alphaOpt[:self.nc, :]
-                        if self.nch * surrogateModel.hShM > 1:
-                            uOpt2 = self.repeatControl(uOpt2, self.nch * surrogateModel.hShM)
-                            iuOpt2 = self.repeatControl(iuOpt2, self.nch * surrogateModel.hShM)
-                            alphaOpt2 = self.repeatControl(alphaOpt2, self.nch * surrogateModel.hShM)
+                        uOptC = surrogateModel.mapAlphaToU(alphaOptC)
+                        iuOptC = mapUToIu(uOptC, surrogateModel.uGrid)
 
                     alpha0[:-1, :] = alphaOpt[1:, :]
                     alpha0[-1, :] = alphaOpt[-1, :]
 
                 # Apply control to plant
-                uOpt = uOpt2[:self.nch * self.nc * surrogateModel.hShM, :]
-                iuOpt = iuOpt2[:self.nch * self.nc * surrogateModel.hShM , :]
-                [yOpt, zOpt, tOpt, model] = model.integrate(y0, uOpt, time)
+                uOptC = np.vstack((uOptC, uOptC[-1, :]))
+                iuOptC = np.vstack((iuOptC, iuOptC[-1, :]))
+                [yOpt, zOpt, tOpt, model] = model.integrate(y0, uOptC, time)
 
                 if surrogateModel.calcJ is None:
-                    deltaZ = zOpt - reference.z[iTime + 1: iTime + surrogateModel.hShM * (self.nch * self.nc) + 1, :]
-                    dZ = np.sum(np.diag(deltaZ @ self.Q @ deltaZ.T))
-                    print('- Opt solved; uOpt = {}; JOpt = {}; JReal = {}; nFev = {}'.format(uOpt2[0, :], JOpt, dZ, nFev))
+                    deltaZ = zOpt - reference.z[iTime: iTime + surrogateModel.hShM * (self.nch * self.nc) + 1, :]
+                    dZ = surrogateModel.h * np.sum(np.diag(deltaZ @ self.Q @ deltaZ.T))
+                    print('- Opt solved; uOpt = {}; JOpt = {}; JReal = {}; nFev = {}'.format(uOptC[0, :], JOpt, dZ, nFev))
                 else:
-                    print('- Opt solved; uOpt = {}; JOpt = {}; nFev = {}'.format(uOpt2[0, :], JOpt, nFev))
+                    print('- Opt solved; uOpt = {}; JOpt = {}; nFev = {}'.format(uOptC[0, :], JOpt, nFev))
 
                 # Store data to output array
-                result.add(iTime, model.writeY, self.nch * self.nc * surrogateModel.hShM, yOpt, zOpt, tOpt, uOpt,
-                           iuOpt, JOpt, nFev, alphaOpt2, omegaOpt2)
+                result.add(iTime, model.writeY, self.nch * self.nc * surrogateModel.hShM, yOpt, zOpt, tOpt, uOptC,
+                           iuOptC, JOpt, nFev, alphaOptC, omegaOptC)
 
                 # Save data to file
                 if savePath is not None:
@@ -1266,78 +1252,93 @@ class ClassMPC:
                 if model.writeY:
                     y0 = yOpt[-1, :]
 
-        # MPC based on the full model
-        else:
-
-            print('Solving MPC problem using full model')
-
-            result = ClassResult(self.typeOpt, nt, model.dimU, model.nU, dimZ=model.dimZ, flagSurrogate=False)
-
-            u0 = np.zeros([self.np, model.dimU], dtype=float)
-            for i in range(self.np):
-                u0[i, :] = model.uC
-
-            if self.typeOpt != 'combinatorial':
-
-                bounds = np.zeros([self.np * model.dimU, 2])
-                for i in range(self.np):
-                    for j in range(model.dimU):
-                        bounds[i * model.dimU + j, 0] = model.uMin[j]
-                        bounds[i * model.dimU + j, 1] = model.uMax[j]
-                self.bounds = Bounds(bounds[:, 0], bounds[:, 1])
-
-            if model.writeY:
-                result.add(0, model.writeY, 0, np.reshape(y0, [1, y0.shape[0]]), np.reshape(y0, [1, y0.shape[0]]),
-                           np.zeros((1,)),
-                           None, None, None, None, init=True)
-            else:
-                result.add(0, model.writeY, 0, None, np.reshape(y0, [1, y0.shape[0]]),
-                           None, None, None, None, init=True)
-
-            while iTime <= nt - self.nc:
-
-                # Solve optimization problem
-                if self.typeOpt == 'combinatorial':
-                    JOpt = 1e10
-                    nFev = model.nU ** self.np
-                    for uii in itertools.product(model.uGrid, repeat=self.np):
-                        ui = np.stack(uii)
-                        zRef = reference.z[iTime+1: iTime + self.nch * self.np + 1, :]
-                        J = self.objectiveFull(model, zRef, ui, y0, time)
-                        if J < JOpt:
-                            JOpt = J
-                            uOpt = ui
-
-                elif self.typeOpt == 'continuous':
-                    zRef = reference.z[iTime+1: iTime + self.nch * self.np + 1, :]
-                    JOpt, uOpt, nFev = self.solveOptFull(model, zRef, u0, y0, time)
-
-                iuOpt = mapUToIu(uOpt, model.uGrid)
-
-                print('t = {:.2f} sec; uOpt = {}; JOpt = {}; nFev = {}'.format(time, uOpt[0, :], JOpt, nFev))
-
-                # Apply control to plant
-                uOpt2 = uOpt[:self.nc, :]
-                iuOpt2 = iuOpt[:self.nc, :]
-                if self.nch > 1:
-                    uOpt2 = self.repeatControl(uOpt2, self.nch)
-                    iuOpt2 = self.repeatControl(iuOpt2, self.nch)
-                [yOpt, zOpt, tOpt, model] = model.integrate(y0, uOpt2, time)
-
-                # Store data to output array
-                result.add(iTime, model.writeY, self.nch * self.nc, yOpt, zOpt, tOpt, uOpt2, iuOpt2, JOpt, nFev)
-
-                # Save data to file
-                if savePath is not None:
-                    result.save(savePath)
-                    result.saveMat(savePath)
-
-                # Update variables
-                time = time + self.nch * model.h
-                iTime = iTime + self.nch
-                y0 = yOpt[-1, :]
-                u0[:-1, :] = uOpt[1:, :]
-                u0[-1, :] = uOpt[-1, :]
+        # # MPC based on the full model
+        # else:
+        #
+        #     print('Solving MPC problem using full model')
+        #
+        #     result = ClassResult(self.typeOpt, nt, model.dimU, model.nU, dimZ=model.dimZ, flagSurrogate=False)
+        #
+        #     u0 = np.zeros([self.np, model.dimU], dtype=float)
+        #     for i in range(self.np):
+        #         u0[i, :] = model.uC
+        #
+        #     if self.typeOpt == 'continuous':
+        #
+        #         bounds = np.zeros([self.np * model.dimU, 2])
+        #         for i in range(self.np):
+        #             for j in range(model.dimU):
+        #                 bounds[i * model.dimU + j, 0] = model.uMin[j]
+        #                 bounds[i * model.dimU + j, 1] = model.uMax[j]
+        #         self.bounds = Bounds(bounds[:, 0], bounds[:, 1])
+        #     elif self.typeOpt == 'SUR':
+        #         self.bounds = Bounds(np.zeros([self.np * (model.nU - 1)], dtype=float),
+        #                              np.ones([self.np * (model.nU - 1)], dtype=float))
+        #         A = np.zeros([self.np, self.np * (model.nU - 1)], dtype=float)
+        #         for i in range(self.np):
+        #             A[i, i * (model.nU - 1): (i + 1) * (model.nU - 1)] = 1.0
+        #         self.linConstraints = LinearConstraint(A, np.zeros([self.np], dtype=float),
+        #                                                np.ones([self.np], dtype=float))
+        #
+        #         alpha0 = (1.0 / float(model.nU)) * np.ones([self.np, model.nU - 1], dtype=float)
+        #
+        #     if model.writeY:
+        #         result.add(0, model.writeY, 0, np.reshape(y0, [1, y0.shape[0]]), np.reshape(y0, [1, y0.shape[0]]),
+        #                    np.zeros((1,)),
+        #                    None, None, None, None, init=True)
+        #     else:
+        #         result.add(0, model.writeY, 0, None, np.reshape(y0, [1, y0.shape[0]]),
+        #                    None, None, None, None, init=True)
+        #
+        #     while iTime <= nt - self.nc:
+        #
+        #         # Solve optimization problem
+        #         if self.typeOpt == 'combinatorial':
+        #             JOpt = 1e10
+        #             nFev = model.nU ** self.np
+        #             for uii in itertools.product(model.uGrid, repeat=self.np):
+        #                 ui = np.stack(uii)
+        #                 zRef = reference.z[iTime+1: iTime + self.nch * self.np + 1, :]
+        #                 J = self.objectiveFull(model, zRef, ui, y0, time)
+        #                 if J < JOpt:
+        #                     JOpt = J
+        #                     uOpt = ui
+        #
+        #         elif self.typeOpt == 'continuous':
+        #             zRef = reference.z[iTime+1: iTime + self.nch * self.np + 1, :]
+        #             JOpt, uOpt, nFev = self.solveOptFull(model, zRef, u0, y0, time)
+        #
+        #         elif self.typeOpt == 'SUR':
+        #             zRef = reference.z[iTime: iTime + self.nch * self.np + 1, :]
+        #             JOpt, alphaOpt, nFev = self.solveOptAlphaFull(model, zRef, alpha0, y0, time)
+        #             uOpt = model.mapAlphaToU(alphaOpt)
+        #
+        #         iuOpt = mapUToIu(uOpt, model.uGrid)
+        #
+        #         print('t = {:.2f} sec; uOpt = {}; JOpt = {}; nFev = {}'.format(time, uOpt[0, :], JOpt, nFev))
+        #
+        #         # Apply control to plant
+        #         uOpt2 = uOpt[:self.nc, :]
+        #         iuOpt2 = iuOpt[:self.nc, :]
+        #         if self.nch > 1:
+        #             uOpt2 = self.repeatControl(uOpt2, self.nch)
+        #             iuOpt2 = self.repeatControl(iuOpt2, self.nch)
+        #         [yOpt, zOpt, tOpt, model] = model.integrate(y0, uOpt2, time)
+        #
+        #         # Store data to output array
+        #         result.add(iTime, model.writeY, self.nch * self.nc, yOpt, zOpt, tOpt, uOpt2, iuOpt2, JOpt, nFev)
+        #
+        #         # Save data to file
+        #         if savePath is not None:
+        #             result.save(savePath)
+        #             result.saveMat(savePath)
+        #
+        #         # Update variables
+        #         time = time + self.nch * model.h
+        #         iTime = iTime + self.nch
+        #         y0 = yOpt[-1, :]
+        #         u0[:-1, :] = uOpt[1:, :]
+        #         u0[-1, :] = uOpt[-1, :]
 
             print('MPC Done')
 
@@ -1348,6 +1349,7 @@ class ClassMPC:
         def obj(aa):
             return self.objectiveSurrogate(surrogateModel, zRef, aa.reshape((self.np, surrogateModel.nU - 1)), z0, t0)
 
+        # Create 1D Vector
         alpha0 = alpha0.reshape(((surrogateModel.nU - 1) * self.np, 1))
 
         res = minimize(obj, alpha0[:, 0], method=self.scipyMinimizeMethod, bounds=self.bounds,
@@ -1360,39 +1362,18 @@ class ClassMPC:
         if self.nch > 1:
             alpha = self.repeatControl(alpha)
 
+        # Add column of alpha in order to use all entries of the given control input
+        alpha = np.concatenate((alpha, np.zeros([1, alpha.shape[1]], dtype=float)), axis=0)
+
         z = surrogateModel.integrateRelaxedTimeTMap(z0, t0, alpha)
 
         return self.calcJ(z, zRef, surrogateModel.mapAlphaToU(alpha), surrogateModel.h, surrogateModel.modelData)
-
-    def solveOptFull(self, model, reference, u0, y0, t0):
-
-        def obj(uu):
-            return self.objectiveFull(model, reference, uu.reshape((self.np, model.dimU)), y0, t0)
-
-        u0 = u0.reshape((model.dimU * self.np, 1))
-
-        res = minimize(obj, u0[:, 0], method=self.scipyMinimizeMethod, bounds=self.bounds,
-                       options=self.scipyMinimizeOptions)
-
-        return res.fun, res.x.reshape((self.np, model.dimU)), res.nfev
-
-    def objectiveFull(self, model, zRef, u, y0, t0):
-
-        if self.nch > 1:
-            u = self.repeatControl(u)
-
-        [_, z, _, _] = model.integrate(y0, u, t0)
-
-        return self.calcJ(z, zRef, u, model.h)
 
     def calcJInternal(self, z, zRef, u, h, modelData=None):
         deltaZ = z[:, :self.dimZ] - zRef
         deltaU = (u[1:] - u[:-1]) / h
         return np.sum(np.diag(deltaZ @ self.Q @ deltaZ.T) + (deltaZ @ self.L).T) + np.sum(np.diag(u @ self.R @ u.T)) + \
                np.sum(np.diag(deltaU @ self.S @ deltaU.T))
-        # return np.trapz(np.einsum('ij,kj,ik->i', deltaZ, self.Q, deltaZ), dx=h) + \
-        #        np.trapz(np.einsum('ij,kj,ik->i', u, self.R, u), dx=h) + \
-        #        np.trapz(np.einsum('ij,kj,ik->i', deltaU, self.S, deltaU), dx=h)
 
     def repeatControl(self, u, nch=None):
         if nch is None:
@@ -1404,6 +1385,63 @@ class ClassMPC:
                 uOut[i * nch: (i + 1) * nch, j] = u[i, j]
         return uOut
 
+    # def solveOptFull(self, model, reference, u0, y0, t0):
+    #
+    #     def obj(uu):
+    #         return self.objectiveFull(model, reference, uu.reshape((self.np, model.dimU)), y0, t0)
+    #
+    #     u0 = u0.reshape((model.dimU * self.np, 1))
+    #
+    #     res = minimize(obj, u0[:, 0], method=self.scipyMinimizeMethod, bounds=self.bounds,
+    #                    options=self.scipyMinimizeOptions)
+    #
+    #     return res.fun, res.x.reshape((self.np, model.dimU)), res.nfev
+    #
+    # def solveOptAlphaFull(self, model, reference, alpha0, y0, t0):
+    #
+    #     def obj(aa):
+    #         return self.objectiveAlphaFull(model, reference, aa.reshape((self.np, model.nU - 1)), y0, t0)
+    #
+    #     alpha0 = alpha0.reshape(((model.nU - 1) * self.np, 1))
+    #
+    #     res = minimize(obj, alpha0[:, 0], method=self.scipyMinimizeMethod, bounds=self.bounds,
+    #                    options=self.scipyMinimizeOptions)
+    #
+    #     return res.fun, res.x.reshape((self.np, model.nU - 1)), res.nfev
+    #
+    # def objectiveFull(self, model, zRef, u, y0, t0):
+    #
+    #     if self.nch > 1:
+    #         u = self.repeatControl(u)
+    #
+    #     [_, z, _, _] = model.integrate(y0, u, t0)
+    #
+    #     return self.calcJ(z, zRef, u, model.h)
+    #
+    # def objectiveAlphaFull(self, model, zRef, alpha, y0, t0):
+    #
+    #     if self.nch > 1:
+    #         alpha = self.repeatControl(alpha)
+    #
+    #     alpha2 = np.zeros((alpha.shape[0], alpha.shape[1] + 1), dtype=float)
+    #     alpha2[:, :-1] = alpha
+    #     alpha2[:, -1] = np.ones(alpha.shape[0], dtype=float) - np.sum(alpha, axis=1)
+    #     alpha2 = np.concatenate((alpha2, [alpha2[-1, :]]), axis=0)
+    #
+    #     y = np.zeros([alpha2.shape[0], len(y0)], dtype=float)
+    #     y[0, :] = y0
+    #     z = np.zeros([alpha2.shape[0], zRef.shape[1]], dtype=float)
+    #     u = np.zeros([self.nch + 1, model.dimU], dtype=float)
+    #     for i in range(alpha2.shape[0] - 1):
+    #         for j in range(model.nU):
+    #             for k in range(model.dimU):
+    #                 u[:, k] = model.uGrid[j, k]
+    #             [yi, zi, _, _] = model.integrate(y[i, :], u, t0)
+    #             z[i + 1, :] += alpha2[i, j] * zi[-1, :]
+    #             y[i + 1, :] += alpha2[i, j] * yi[-1, :]
+    #
+    #     return self.calcJ(z, zRef, model.mapAlphaToU(alpha), model.h)
+
 
 class ClassResult:
     y, z, u, J, t, nFev, iu, alpha, omega = [], [], [], [], [], [], [], [], []
@@ -1413,48 +1451,48 @@ class ClassResult:
             self.y = np.zeros([nT + 1, dimY], dtype=float)
 
         self.z = np.zeros([nT + 1, dimZ], dtype=float)
-        self.u = np.zeros([nT, dimU], dtype=float)
-        self.iu = np.zeros([nT, 1], dtype=float)
-        self.J = np.zeros([nT, 1], dtype=float)
+        self.u = np.zeros([nT + 1, dimU], dtype=float)
+        self.iu = np.zeros([nT + 1, 1], dtype=float)
+        self.J = np.zeros([nT + 1, 1], dtype=float)
         self.t = np.zeros([nT + 1, 1], dtype=float)
-        self.nFev = np.zeros([nT, 1], dtype=float)
+        self.nFev = np.zeros([nT + 1, 1], dtype=float)
 
         if (typeOpt != 'combinatorial') and (flagSurrogate is True):
-            self.alpha = np.zeros([nT, nU - 1], dtype=float)
+            self.alpha = np.zeros([nT + 1, nU - 1], dtype=float)
 
         if (typeOpt == 'SUR') or (typeOpt == 'SUR_coarse'):
-            self.omega = np.zeros([nT, nU], dtype=float)
+            self.omega = np.zeros([nT + 1, nU], dtype=float)
 
     def add(self, iTime, writeY, nWrite, y, z, t, u, iu, J, nFev, alpha=None, omega=None, init=False):
 
-        iEnd = min(iTime + nWrite, self.t.shape[0])
+        iEnd = min(iTime + nWrite + 1, self.t.shape[0])
         nWrite -= (iTime + nWrite) - iEnd
 
         if init:
             if writeY:
                 dimY = y.shape[1]
                 self.y = np.zeros([self.t.shape[0], dimY], dtype=float)
-                self.y[0,:] = y[0, :]
+                self.y[0, :] = y[0, :]
 
             dimZ = z.shape[1]
             self.z = np.zeros([self.t.shape[0], dimZ], dtype=float)
             self.z[0, :] = z[0, :]
 
-        if nWrite > 0:
+        if nWrite > 1:
             if writeY:
-                self.y[iTime + 1: iEnd + 1, :] = y[:nWrite, :]
+                self.y[iTime: iEnd, :] = y[:nWrite, :]
 
-            self.z[iTime + 1: iEnd + 1, :] = z[:nWrite, :]
-            self.t[iTime + 1: iEnd + 1, 0] = t[:nWrite]
+            self.z[iTime: iEnd, :] = z[:nWrite, :]
+            self.t[iTime: iEnd, 0] = t[:nWrite]
 
             self.u[iTime: iEnd, :] = u[:nWrite, :]
             self.iu[iTime: iEnd, 0] = iu[:nWrite, 0]
             self.J[iTime: iEnd, :] = J
             self.nFev[iTime: iEnd, :] = nFev
             if alpha is not None:
-                self.alpha[iTime: iEnd, :] = alpha[:nWrite, :]
+                self.alpha[iTime: iEnd - 1, :] = alpha[:nWrite - 1, :]
             if omega is not None:
-                self.omega[iTime: iEnd, :] = omega[:nWrite, :]
+                self.omega[iTime: iEnd - 1, :] = omega[:nWrite - 1, :]
 
     def save(self, savePath):
         np.savez(savePath, y=self.y, z=self.z, u=self.u, J=self.J, t=self.t, nFev=self.nFev, iu=self.iu,

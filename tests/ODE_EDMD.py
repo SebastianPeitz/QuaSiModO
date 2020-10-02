@@ -13,7 +13,7 @@ def rhs(y_, u_):
 # -------------------------------------------------------------------------------------------------------------------- #
 # Set parameters
 # -------------------------------------------------------------------------------------------------------------------- #
-T = 10.0  # Time for the MPC problem
+T = 5.0  # Time for the MPC problem
 Ttrain = 100.0  # Time for the simulation in the traing data generation
 h = 0.1  # Time step for the ODE solver, for the training data sampling and for the MPC step length
 y0 = [1.0, 2.0]  # Initial condition of the ODE
@@ -52,8 +52,8 @@ data = dataSet.prepareData(model, method='Y_dX', rawData=dataSet.rawData, nLag=n
 # Plot the control u, the control index iu and the corresponding data sets for y and z
 # multiPlotLines2D(dataSet.rawData.t[0], u=dataSet.rawData.u[0], iu=dataSet.rawData.iu[0],
 #                  y=dataSet.rawData.y[0], z=dataSet.rawData.z[0])
-plot(u={'t': dataSet.rawData.t[0][:-1], 'u': dataSet.rawData.u[0], 'iplot': 0},
-          iu={'t': dataSet.rawData.t[0][:-1], 'iu': dataSet.rawData.iu[0], 'iplot': 1},
+plot(u={'t': dataSet.rawData.t[0], 'u': dataSet.rawData.u[0], 'iplot': 0},
+          iu={'t': dataSet.rawData.t[0], 'iu': dataSet.rawData.iu[0], 'iplot': 1},
           y={'t': dataSet.rawData.t[0], 'y': dataSet.rawData.y[0], 'iplot': 2},
           z={'t': dataSet.rawData.t[0], 'z': dataSet.rawData.z[0], 'iplot': 3})
 
@@ -106,7 +106,7 @@ MPC = ClassMPC(np=3, nc=1, typeOpt='continuous', scipyMinimizeMethod='trust-cons
 
 # Define reference trajectory for second state variable (iRef = 1)
 TRef = T + 2.0
-zRef = 3.0 * np.ones([int(round(TRef / h)) + 1, 1], dtype=float)
+zRef = 0.5 * np.ones([int(round(TRef / h)) + 1, 1], dtype=float)
 iRef = [1]
 
 reference = ClassReferenceTrajectory(model, T=TRef, zRef=zRef, iRef=iRef)
@@ -120,23 +120,23 @@ S = [0.0]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 # Solve different MPC problems (via "MPC.run") and plot the result
 # -------------------------------------------------------------------------------------------------------------------- #
 
-# 1) Full model, continuous control
-MPC.nch = nLag
-result_FullContinuous = MPC.run(model, reference, y0=y0, T=T, Q=Q, R=R, S=S)
-
-plot(z={'t': result_FullContinuous.t, 'z': result_FullContinuous.z, 'reference': reference, 'iplot': 0},
-     u={'t': result_FullContinuous.t[:-1], 'u': result_FullContinuous.u, 'iplot': 1},
-     J={'t': result_FullContinuous.t[:-1], 'J': result_FullContinuous.J, 'iplot': 2},
-     nFev={'t': result_FullContinuous.t[:-1], 'nFev': result_FullContinuous.nFev, 'iplot': 3})
-
-# 2) Full model, integer control, computed via total evaluation of all control combinations on the control horizon
-MPC.typeOpt = 'combinatorial'
-result_FullCombinatorial = MPC.run(model, reference, y0=y0, T=T, Q=Q, R=R, S=S)
-
-plot(z={'t': result_FullCombinatorial.t, 'z': result_FullCombinatorial.z, 'reference': reference, 'iplot': 0},
-     u={'t': result_FullCombinatorial.t[:-1], 'u': result_FullCombinatorial.u, 'iplot': 1},
-     J={'t': result_FullCombinatorial.t[:-1], 'J': result_FullCombinatorial.J, 'iplot': 2},
-     nFev={'t': result_FullCombinatorial.t[:-1], 'nFev': result_FullCombinatorial.nFev, 'iplot': 3})
+# # 1) Full model, continuous control
+# MPC.nch = nLag
+# result_FullContinuous = MPC.run(model, reference, y0=y0, T=T, Q=Q, R=R, S=S)
+#
+# plot(z={'t': result_FullContinuous.t, 'z': result_FullContinuous.z, 'reference': reference, 'iplot': 0},
+#      u={'t': result_FullContinuous.t[:-1], 'u': result_FullContinuous.u, 'iplot': 1},
+#      J={'t': result_FullContinuous.t[:-1], 'J': result_FullContinuous.J, 'iplot': 2},
+#      nFev={'t': result_FullContinuous.t[:-1], 'nFev': result_FullContinuous.nFev, 'iplot': 3})
+#
+# # 2) Full model, integer control, computed via total evaluation of all control combinations on the control horizon
+# MPC.typeOpt = 'combinatorial'
+# result_FullCombinatorial = MPC.run(model, reference, y0=y0, T=T, Q=Q, R=R, S=S)
+#
+# plot(z={'t': result_FullCombinatorial.t, 'z': result_FullCombinatorial.z, 'reference': reference, 'iplot': 0},
+#      u={'t': result_FullCombinatorial.t[:-1], 'u': result_FullCombinatorial.u, 'iplot': 1},
+#      J={'t': result_FullCombinatorial.t[:-1], 'J': result_FullCombinatorial.J, 'iplot': 2},
+#      nFev={'t': result_FullCombinatorial.t[:-1], 'nFev': result_FullCombinatorial.nFev, 'iplot': 3})
 
 # 3) Surrogate model, continuous input obtained via relaxation of the integer input in uGrid
 MPC.typeOpt = 'continuous'
@@ -144,40 +144,40 @@ MPC.nch = 1
 result_SurrogateContinuous = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S)
 
 plot(z={'t': result_SurrogateContinuous.t, 'z': result_SurrogateContinuous.z, 'reference': reference, 'iplot': 0},
-     u={'t': result_SurrogateContinuous.t[:-1], 'u': result_SurrogateContinuous.u, 'iplot': 1},
-     J={'t': result_SurrogateContinuous.t[:-1], 'J': result_SurrogateContinuous.J, 'iplot': 2},
-     nFev={'t': result_SurrogateContinuous.t[:-1], 'nFev': result_SurrogateContinuous.nFev, 'iplot': 3})
+     u={'t': result_SurrogateContinuous.t, 'u': result_SurrogateContinuous.u, 'iplot': 1},
+     J={'t': result_SurrogateContinuous.t, 'J': result_SurrogateContinuous.J, 'iplot': 2},
+     nFev={'t': result_SurrogateContinuous.t, 'nFev': result_SurrogateContinuous.nFev, 'iplot': 3})
 
 # 4) Surrogate model, integer control computed via total evaluation of all control combinations on the control horizon
 MPC.typeOpt = 'combinatorial'
 result_SurrogateCombinatorial = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S)
 
 plot(z={'t': result_SurrogateCombinatorial.t, 'z': result_SurrogateCombinatorial.z, 'reference': reference, 'iplot': 0},
-     u={'t': result_SurrogateCombinatorial.t[:-1], 'u': result_SurrogateCombinatorial.u, 'iplot': 1},
-     J={'t': result_SurrogateCombinatorial.t[:-1], 'J': result_SurrogateCombinatorial.J, 'iplot': 2},
-     nFev={'t': result_SurrogateCombinatorial.t[:-1], 'nFev': result_SurrogateCombinatorial.nFev, 'iplot': 3})
+     u={'t': result_SurrogateCombinatorial.t, 'u': result_SurrogateCombinatorial.u, 'iplot': 1},
+     J={'t': result_SurrogateCombinatorial.t, 'J': result_SurrogateCombinatorial.J, 'iplot': 2},
+     nFev={'t': result_SurrogateCombinatorial.t, 'nFev': result_SurrogateCombinatorial.nFev, 'iplot': 3})
 
 # 5) Surrogate model, integer control computed via relaxation and sum up rounding
 MPC.typeOpt = 'SUR'
 result_SurrogateSUR = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S)
 
 plot(z={'t': result_SurrogateSUR.t, 'z': result_SurrogateSUR.z, 'reference': reference, 'iplot': 0},
-     u={'t': result_SurrogateSUR.t[:-1], 'u': result_SurrogateSUR.u, 'iplot': 1},
-     J={'t': result_SurrogateSUR.t[:-1], 'J': result_SurrogateSUR.J, 'iplot': 2},
-     nFev={'t': result_SurrogateSUR.t[:-1], 'nFev': result_SurrogateSUR.nFev, 'iplot': 3},
-     alpha={'t': result_SurrogateSUR.t[:-1], 'alpha': result_SurrogateSUR.alpha, 'iplot': 4},
-     omega={'t': result_SurrogateSUR.t[:-1], 'omega': result_SurrogateSUR.omega, 'iplot': 5})
+     u={'t': result_SurrogateSUR.t, 'u': result_SurrogateSUR.u, 'iplot': 1},
+     J={'t': result_SurrogateSUR.t, 'J': result_SurrogateSUR.J, 'iplot': 2},
+     nFev={'t': result_SurrogateSUR.t, 'nFev': result_SurrogateSUR.nFev, 'iplot': 3},
+     alpha={'t': result_SurrogateSUR.t, 'alpha': result_SurrogateSUR.alpha, 'iplot': 4},
+     omega={'t': result_SurrogateSUR.t, 'omega': result_SurrogateSUR.omega, 'iplot': 5})
 
 # 6) Surrogate model, integer control computed via relaxation and sum up rounding
 MPC.typeOpt = 'SUR_coarse'
 result_SurrogateSURc = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S)
 
 plot(z={'t': result_SurrogateSURc.t, 'z': result_SurrogateSURc.z, 'reference': reference, 'iplot': 0},
-     u={'t': result_SurrogateSURc.t[:-1], 'u': result_SurrogateSURc.u, 'iplot': 1},
-     J={'t': result_SurrogateSURc.t[:-1], 'J': result_SurrogateSURc.J, 'iplot': 2},
-     nFev={'t': result_SurrogateSURc.t[:-1], 'nFev': result_SurrogateSURc.nFev, 'iplot': 3},
-     alpha={'t': result_SurrogateSURc.t[:-1], 'alpha': result_SurrogateSURc.alpha, 'iplot': 4},
-     omega={'t': result_SurrogateSURc.t[:-1], 'omega': result_SurrogateSURc.omega, 'iplot': 5})
+     u={'t': result_SurrogateSURc.t, 'u': result_SurrogateSURc.u, 'iplot': 1},
+     J={'t': result_SurrogateSURc.t, 'J': result_SurrogateSURc.J, 'iplot': 2},
+     nFev={'t': result_SurrogateSURc.t, 'nFev': result_SurrogateSURc.nFev, 'iplot': 3},
+     alpha={'t': result_SurrogateSURc.t, 'alpha': result_SurrogateSURc.alpha, 'iplot': 4},
+     omega={'t': result_SurrogateSURc.t, 'omega': result_SurrogateSURc.omega, 'iplot': 5})
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Store the final result to a .mat file
