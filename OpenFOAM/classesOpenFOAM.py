@@ -61,9 +61,10 @@ class ClassOpenFOAM:
     purgeWrite = 0
 
     mesh = ClassOFMesh()
+    SigZ = 0.0
 
     def __init__(self, pathProblem, obs, pathOut, nProc=1, nInputs=1, dimInputs=1, iInputs=[0], h=0.01, Re=100.0,
-                 dimSpace=2, BCWrite='0'):
+                 dimSpace=2, BCWrite='0', SigZ=None):
 
         self.obs = obs
 
@@ -93,6 +94,9 @@ class ClassOpenFOAM:
 
         if Re is not None:
             self.Re = Re
+
+        if SigZ is not None:
+            self.SigZ = SigZ
 
         # Create pathOut if not existent
         if not os.path.exists(self.pathOut):

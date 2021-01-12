@@ -58,7 +58,7 @@ class ClassModel:
     typeUGrid = []
 
     def __init__(self, modelFileOrClass, uMin, uMax, h, dimZ, params=None, iObs=None, y0=None,
-                 typeUGrid=None, nGridU=1, uGrid=None, writeY=True):
+                 typeUGrid=None, nGridU=1, uGrid=None, writeY=True, SigY=None, SigZ=None):
 
         print('Creating ClassModel with uMin = ' + str(uMin) + '; uMax = ' + str(uMax) + '; h = ' + str(h) +
               '; dimZ = ' + str(dimZ) + '; iObs = ' + str(iObs) + '; y0 = ' + str(y0) +
@@ -89,6 +89,12 @@ class ClassModel:
         if iObs is not None:
             self.iObs = iObs
 
+        if SigY is not None:
+            self.SigY = SigY
+
+        if SigZ is not None:
+            self.SigZ = SigZ
+
         self.writeY = writeY
 
         # set the model structure depending on the input type in "modelFileOrClass"
@@ -99,8 +105,15 @@ class ClassModel:
         # 1) the right-hand side of an ODE
         if callable(modelFileOrClass):
             self.rhs = modelFileOrClass
-            self.model = self.simulateODE
-            self.observable = self.observeODE
+            if SigY is None:
+                self.model = self.simulateODE
+            else:
+                self.model = self.simulateSDE
+
+            if SigZ is None:
+                self.observable = self.observeODE
+            else:
+                self.observable = self.observeSDE
             self.calcJ = None
         else:
 
@@ -146,13 +159,35 @@ class ClassModel:
 
         return y, t
 
+    def EulerMaruyama(self, y0, t0, u):
+        nt = u.shape[0]
+        T = (nt - 1) * self.h
+        t = np.linspace(0.0, T, nt) + t0
+        y = np.empty([nt, len(y0)], dtype=float)
+        y[0, :] = y0
+        for i in range(nt - 1):
+            y[i + 1, :] = y[i, :] + self.h * self.rhs(y[i, :], u[i, :]) + \
+                          self.SigY * np.random.normal(loc=0.0, scale=np.sqrt(self.h), size=(1, len(y0)))
+
+        return y, t
+
     # simulation model for ODEs
     def simulateODE(self, y0, t0, u, model):
         # Solve
         y, t = self.RK4(y0, t0, u)
 
         # Observation
-        z = self.observeODE(y)
+        z = self.observable(y)
+
+        return y, z, t, model
+
+    # simulation model for SDEs
+    def simulateSDE(self, y0, t0, u, model):
+        # Solve
+        y, t = self.EulerMaruyama(y0, t0, u)
+
+        # Observation
+        z = self.observable(y)
 
         return y, z, t, model
 
@@ -162,6 +197,25 @@ class ClassModel:
             z = y[:, self.iObs]
         else:
             z = y
+
+        return z
+
+    # observable for ODEs
+    def observeSDE(self, y):
+
+        if len(self.iObs) > 0:
+            nObs = len(self.iObs)
+        else:
+            nObs = y.shape[1]
+
+        z = np.zeros([y.shape[0], nObs], dtype=float)
+
+        if len(self.iObs) > 0:
+            for i in range(y.shape[0]):
+                z[i, :] = y[i, self.iObs] + np.sqrt(self.SigZ) * np.random.normal(size=(1, nObs))
+        else:
+            for i in range(y.shape[0]):
+                z[i, :] = y[i, :] + self.SigZ * np.random.normal(loc=0.0, scale=np.sqrt(self.h), size=(1, nObs))
 
         return z
 
@@ -323,7 +377,7 @@ class ClassControlDataSet:
             self.y0 = np.array(y0)
 
     def createControlSequence(self, model, h=None, T=None, uGrid=None, nhMin=1, nhMax=10,
-                              typeSequence='piecewiseConstant', u=None, iu=None):
+                              typeSequence='piecewiseConstant', u=None, iu=None, periodicParameters=None):
         """
         Creates a control sequence based on the sequence type and the uGrid specified in 'ClassModel.createControlGrid'
         via the variable typeUGrid. The structure of the output is a 3-dimensional array, where the third index
@@ -344,9 +398,12 @@ class ClassControlDataSet:
             c) 'spline': Spline interpolation between inputs selected randomly from self.uGrid.
                          Random length of intervals bounded by nhMin and nhMax.
             d) Numerical value: Constant control input over the entire trajectory
+            e) 'sine': Sine function u(t) = a * sin(2 * pi * b * (t - c)). In that case, the input
+                       periodicParameters = [a, b, c] needs to be specified
         8) u: Previously created sequence
 
         9) iu: index of controls to input 8)
+        10) periodicParameters = [a, b, c]: parameter in the case of sine input u(t) = a * sin(2 * pi * b * (t - c))
         """
 
         if T is None:
@@ -355,7 +412,8 @@ class ClassControlDataSet:
         if h is None:
             h = self.h
 
-        self.t = np.linspace(0, T-h, int(T / h))
+        nt = int(T / h + 1)
+        self.t = np.linspace(0, T, nt)
 
         if uGrid is None:
             if len(model.uGrid) == 0:
@@ -367,8 +425,6 @@ class ClassControlDataSet:
 
         print('Creating control sequence with h = ' + str(h) + '; T = ' + str(T) + '; uGrid = ' + str(uGrid) +
               '; nhMin = ' + str(nhMin) + '; nhMax = ' + str(nhMax) + '; typeSequence = ' + str(typeSequence))
-
-        nt = int(T / h + 1)
 
         if u is None:
             if iu is not None:
@@ -423,21 +479,30 @@ class ClassControlDataSet:
                 iSupport[0] = 0
                 uSupport[0, :] = uGrid[0, :]
                 s = 0
-                while i2 < nt:
+                while i2 < nt - 1:
                     s += 1
-                    i2 = np.minimum(i1 + np.random.randint(nhMin, nhMax + 1), nt)
+                    i2 = np.minimum(i1 + np.random.randint(nhMin, nhMax + 1), nt - 1)
                     iSupport[s] = i2
                     uSupport[s, :] = uGrid[np.random.randint(model.nU), :]
                     i1 = i2
 
-                iSupport = iSupport[:s]
-                uSupport = uSupport[:s, :]
+                iSupport = iSupport[:s + 1]
+                uSupport = uSupport[:s + 1, :]
 
                 for i in range(model.dimU):
                     tck = interpolate.splrep(self.t[iSupport], uSupport[:, i], s=0)
                     u_[:, i] = interpolate.splev(self.t, tck, der=0)
 
                 iu_ = []
+
+            elif typeSequence == 'sine':
+                if periodicParameters is None:
+                    print('Error in "ClassControlDataSet.createControlSequence": Please specify '
+                          'typeSequence = [a, b, c] if you set typeSequence to "sine".')
+                    exit(1)
+
+                u_[:, 0] = periodicParameters[0] * np.sin(2 * np.pi * periodicParameters[1] * (self.t - periodicParameters[2]))
+
         else:
             uConst = np.zeros([1, model.dimU], dtype=float)
             uConst[0, :] = typeSequence
@@ -1125,7 +1190,7 @@ class ClassMPC:
 
             # If delay is activated, then perform model simulation until a sufficiently long history exists
             if surrogateModel.nDelay > 0:
-                iuInit = iuInit * np.ones([surrogateModel.nDelay * surrogateModel.hShM, 1], dtype=int)
+                iuInit = iuInit * np.ones([surrogateModel.nDelay * surrogateModel.hShM + 1, 1], dtype=int)
                 uInit = mapIuToU(iuInit, surrogateModel.uGrid)
 
                 [yInit, zInit, tInit, model] = model.integrate(y0, uInit, time)
@@ -1137,7 +1202,7 @@ class ClassMPC:
                 t0 = np.zeros((1,))
 
                 if not len(yInit) == 0:
-                    yInit = np.concatenate((np.reshape(y0,[1,yInit.shape[1]]), yInit), axis=0)
+                    yInit = np.concatenate((np.reshape(y0, [1, yInit.shape[1]]), yInit), axis=0)
                 zInit = np.concatenate(([z0], zInit), axis=0)
                 tInit = np.concatenate((t0, tInit), axis=0)
 

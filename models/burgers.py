@@ -30,10 +30,20 @@ def simulateModel(y0, t0, u, model):
 
     viscosity = 1.0 / model.params['Re']
 
+    if 'SigY' in model.params:
+        SigY = model.params['SigY']
+    else:
+        SigY = 0.0
+
+    if 'SigZ' in model.params:
+        SigZ = model.params['SigZ']
+    else:
+        SigZ = 0.0
+
     # Problem dimensions
     nt = u.shape[0]
     nx = model.grid.x.shape[0]
-    t = np.linspace(t0, t0 + nt * model.h, nt)
+    t = np.linspace(t0, t0 + (nt - 1) * model.h, nt)
 
     # Setting up indices of neighbors for finite differencing
     ip = np.append(np.arange(1, nx), [0])
@@ -61,9 +71,14 @@ def simulateModel(y0, t0, u, model):
                (viscosity * (y_[ip] - 2.0 * y_ + y_[im]) / (model.grid.dx * model.grid.dx))
         for i_ in range(model.dimU):
             ydot += (Chi_u[i_] * u_[i_])
+
+        # noise term
+        ydot += SigY * np.random.normal(loc=0.0, scale=np.sqrt(model.h), size=(len(y_)))
+
         if flagDirichlet0:
             ydot[0] = 0.0
             ydot[-1] = 0.0
+
         return ydot
 
     for i in range(0, nt - 1):
@@ -74,11 +89,11 @@ def simulateModel(y0, t0, u, model):
         y[i + 1, :] = y[i, :] + model.h / 6.0 * (k1 + 2.0 * (k2 + k3) + k4)
 
     # Observation
-    # z = y[model.grid.iObs, :]
-    z = observable(y, model)
+    z = observable(y, model, SigZ)
 
     return y, z, t, model
 
 
-def observable(y, model):
-    return y[:, model.grid.iObs]
+def observable(y, model, SigZ=0.0):
+    return y[:, model.grid.iObs] + \
+           SigZ * np.random.normal(loc=0.0, scale=np.sqrt(model.h), size=(y.shape[0], len(model.grid.iObs)))

@@ -109,7 +109,7 @@ zRef = np.zeros([nRef, 2], dtype=float)
 reference = ClassReferenceTrajectory(model, T=TRef, zRef=zRef)
 
 # Create class for the MPC problem
-MPC = ClassMPC(np=50, nc=1, nch=1, typeOpt='continuous', scipyMinimizeMethod='SLSQP') # scipyMinimizeMethod='trust-constr'
+MPC = ClassMPC(np=5, nc=1, nch=1, typeOpt='continuous', scipyMinimizeMethod='SLSQP') # scipyMinimizeMethod='trust-constr'
 
 # Weights for the objective function
 Q = [1.0, 0.2]  # reference tracking: (z - deltaZ)^T * Q * (z - deltaZ)

@@ -14,13 +14,16 @@ def timeTMap(z0, t0, iu, modelData):
 
 def createSurrogateModel(modelData, data):
 
-    if modelData.nMonomials == 0:
-        psi = Identity
-    else:
-        psi = observables.monomials(modelData.nMonomials)
-
     X = data['X']
     Y = data['Y']
+
+    if modelData.nMonomials == 0:
+        psi = Identity
+        P = np_.array(range(X[0].shape[1]))
+    else:
+        psi = observables.monomials(modelData.nMonomials)
+        P = np_.array(range(1, X[0].shape[1] + 1))
+
     for i in range(len(X)):
         PsiX = psi(X[i].T)
         PsiY = psi(Y[i].T)
@@ -38,11 +41,6 @@ def createSurrogateModel(modelData, data):
         A[:, :, i] = Ai
         G[:, :, i] = Gi
         m[i] = float(X[i].shape[0])
-
-    if modelData.nMonomials == 0:
-        P = np_.array(range(X[0].shape[1]))
-    else:
-        P = np_.array(range(1, X[0].shape[1] + 1))
 
     setattr(modelData, 'psi', psi)
     setattr(modelData, 'K', K)

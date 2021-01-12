@@ -19,10 +19,16 @@ b = 8 / 3
 T = 20.0  # Time for the MPC problem
 h = 0.0005  # Time step for the ODE solver, for the training data sampling and for the MPC step length
 y0 = [0.5, -0.5, 1.0]  # Initial condition of the ODE
-# uMin = [-50.0]  # Minimal value of the input (also defines dimU)
-# uMax = [50.0]  # Maximal value of the input (also defines dimU)
-uMin = [0.0]  # Minimal value of the input (also defines dimU)
-uMax = [np.pi]  # Maximal value of the input (also defines dimU)
+
+flagNonlinCon = True
+flagContRef = False
+
+if flagNonlinCon:
+    uMin = [0.0]  # Minimal value of the input (also defines dimU)
+    uMax = [np.pi]  # Maximal value of the input (also defines dimU)
+else:
+    uMin = [-50.0]  # [0.0]  # Minimal value of the input (also defines dimU)
+    uMax = [50.0]  # [np.pi]  # Maximal value of the input (also defines dimU)
 
 dimZ = 3  # dimension of the observable (= dimY in the ODE case, unless iObs is passed to ClassModel)
 nGridU = 1  # number of parts the grid is split into (--> uGrid = [-2, 0, 2])
@@ -46,14 +52,24 @@ elif method == "LSTM":
 # -------------------------------------------------------------------------------------------------------------------- #
 # ODE: Define right-hand side as a a function of the state y and the control u
 # -------------------------------------------------------------------------------------------------------------------- #
-def rhs(y_, u_):
-    y = np.zeros([3, ])
+if flagNonlinCon:
+    def rhs(y_, u_):
+        y = np.zeros([3, ])
 
-    y[0] = sigma * (y_[1] - y_[0])
-    y[1] = r * y_[0] - y_[0] * y_[2] - y_[1] + 50.0 * np.cos(u_);
-    y[2] = y_[0] * y_[1] - b * y_[2]
+        y[0] = sigma * (y_[1] - y_[0])
+        y[1] = r * y_[0] - y_[0] * y_[2] - y_[1] + 50.0 * np.cos(u_)
+        y[2] = y_[0] * y_[1] - b * y_[2]
 
-    return y
+        return y
+else:
+    def rhs(y_, u_):
+        y = np.zeros([3, ])
+
+        y[0] = sigma * (y_[1] - y_[0])
+        y[1] = r * y_[0] - y_[0] * y_[2] - y_[1] + u_
+        y[2] = y_[0] * y_[1] - b * y_[2]
+
+        return y
 
 
 # %%
@@ -166,16 +182,17 @@ nRef = int(round(TRef / h)) + 1
 p_y = np.sqrt(b * (r - 1))
 zRef = p_y * np.ones([nRef, 1], dtype=float)
 
-# Sine trajectory:
-tRef = np.array(np.linspace(0.0, TRef, nRef))
-zRef[:, 0] = 1.5 * np.sin(2.0 * tRef * 2.0 * np.pi / T)
-
-# Piecewise constant
-zRef[:, 0] = 0.0
-tRef = np.array(np.linspace(0.0, TRef, nRef))
-zRef[np.where(tRef <= 15.0), 0] = -10.0
-zRef[np.where(tRef <= 10.0), 0] = 5.0
-zRef[np.where(tRef <= 5.0), 0] = 0.0
+if flagContRef:
+    # Sine trajectory:
+    tRef = np.array(np.linspace(0.0, TRef, nRef))
+    zRef[:, 0] = 1.5 * np.sin(2.0 * tRef * 2.0 * np.pi / T)
+else:
+    # Piecewise constant
+    zRef[:, 0] = 0.0
+    tRef = np.array(np.linspace(0.0, TRef, nRef))
+    zRef[np.where(tRef <= 15.0), 0] = -10.0
+    zRef[np.where(tRef <= 10.0), 0] = 5.0
+    zRef[np.where(tRef <= 5.0), 0] = 0.0
 
 reference = ClassReferenceTrajectory(model, T=TRef, zRef=zRef, iRef=iRef)
 
@@ -193,21 +210,35 @@ S = [0.0]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 # Solve different MPC problems (via "MPC.run") and plot the result
 # -------------------------------------------------------------------------------------------------------------------- #
 
-save_path_cont = 'Figures_Paper/Lorenz_EDMD_cont'
-save_path_SUR = 'Figures_Paper/Lorenz_EDMD_SUR'
+if flagNonlinCon:  # 'tests/results/Burgers_POD_SUR'
+    if flagContRef:
+        save_path_cont = 'tests/results/Lorenz_EDMD_NonlinU_RefCont_cont.mat'
+        save_path_SUR = 'tests/results/Lorenz_EDMD_NonlinU_RefCont_SUR.mat'
+    else:
+        save_path_cont = 'tests/results/Lorenz_EDMD_NonlinU_RefPWC_cont.mat'
+        save_path_SUR = 'tests/results/Lorenz_EDMD_NonlinU_RefPWC_SUR.mat'
+
+else:
+    if flagContRef:
+        save_path_cont = 'tests/results/Lorenz_EDMD_LinU_RefCont_cont.mat'
+        save_path_SUR = 'tests/results/Lorenz_EDMD_LinU_RefCont_SUR.mat'
+    else:
+        save_path_cont = 'tests/results/Lorenz_EDMD_LinU_RefPWC_cont.mat'
+        save_path_SUR = 'tests/results/Lorenz_EDMD_LinU_RefPWC_SUR.mat'
 
 # 1) Surrogate model, continuous input obtained via relaxation of the integer input in uGrid
-resultCont = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S, savePath=save_path_cont)
+resultCont = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S)
 
 plot(z={'t': resultCont.t, 'z': np.reshape(resultCont.z[:, 1], [resultCont.z.shape[0], 1]), 'reference': reference,
         'iplot': 0},
      u={'t': resultCont.t, 'u': resultCont.u, 'iplot': 1},
      J={'t': resultCont.t, 'J': resultCont.J, 'iplot': 2},
      nFev={'t': resultCont.t, 'nFev': resultCont.nFev, 'iplot': 3})
+resultCont.saveMat(save_path_cont)
 
 # 2) Surrogate model, integer control computed via relaxation and sum up rounding
 MPC.typeOpt = 'SUR'
-result_SUR = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S, savePath=save_path_SUR)
+result_SUR = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S)
 
 plot(z={'t': result_SUR.t, 'z': np.reshape(result_SUR.z[:, 1], [result_SUR.z.shape[0], 1]), 'reference': reference,
         'iplot': 0},
@@ -216,3 +247,5 @@ plot(z={'t': result_SUR.t, 'z': np.reshape(result_SUR.z[:, 1], [result_SUR.z.sha
      nFev={'t': result_SUR.t, 'nFev': result_SUR.nFev, 'iplot': 3},
      alpha={'t': result_SUR.t, 'alpha': result_SUR.alpha, 'iplot': 4},
      omega={'t': result_SUR.t, 'omega': result_SUR.omega, 'iplot': 5})
+result_SUR.saveMat(save_path_SUR)
+
