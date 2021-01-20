@@ -102,6 +102,11 @@ def simulateModel(y0, t0, u, model):
     beta, gamma, eta = 2.0, 1.0, 9.65
     tau = model.params['tau']
 
+    if 'SigZ' in model.params:
+        SigZ = model.params['SigZ']
+    else:
+        SigZ = 0.0
+
     ny = len(y0)
     nt = u.shape[0]
     T = nt * model.h
@@ -128,9 +133,10 @@ def simulateModel(y0, t0, u, model):
     z = np.zeros([nt, model.dimZ], dtype=float)
     for i in range(model.dimZ - 1):
         # z[:, i] = yAll[i * nLag:-(model.dimZ - i - 1) * nLag]
-        z[:, -(i + 1)] = yAll[int(round(i * nLag_float)) + 1:-int(round((model.dimZ - i - 1) * nLag_float))]
+        z[:, -(i + 1)] = yAll[int(round(i * nLag_float)) + 1:-int(round((model.dimZ - i - 1) * nLag_float))] + \
+                         SigZ * np.random.normal(loc=0.0, scale=np.sqrt(model.h), size=(z.shape[0]))
     # z[:, -1] = yAll[(model.dimZ - 1) * nLag:]
-    z[:, 0] = yAll[int(tau / model.h) + 1:]
+    z[:, 0] = yAll[int(tau / model.h) + 1:] + SigZ * np.random.normal(loc=0.0, scale=np.sqrt(model.h), size=(z.shape[0]))
 
     y = np.zeros([nt, ny], dtype=float)
     for i in range(ny - 1):
