@@ -1,3 +1,8 @@
+from sys import path
+from os import getcwd, sep
+path.append(getcwd()[:getcwd().rfind(sep)])
+
+
 from QuaSiModO import *
 from visualization import *
 
@@ -10,7 +15,6 @@ import matplotlib.pyplot as plt
 # Choose method and set parameters
 # -------------------------------------------------------------------------------------------------------------------- #
 
-method = "ESN"
 
 sigma = 10.0 # Paramters for Lorenz system
 r = 28.0
@@ -28,20 +32,12 @@ nGridU = 1  # number of parts the grid is split into (--> uGrid = [-2, 0, 2])
 
 Ttrain = 1000  # Time for the simulation in the traing data generation
 
-if method == "EDMD":
-    nLag = 5  # Lag time for EDMD
-    nMonomials = 3  # Max order of monomials for EDMD
-    nDelay = 0 # Number of Delay steps for EDMD (EDMD seems to work worse with delay)
-elif method == "LSTM":
-    nDelay = 2 # Number of Delay steps for LSTM (LSTM needs a delay)
-    nLag = 5 # Lag time for LSTM
-    nhidden = 15 # number of hidden neurons in LSTM cell
-elif method == "ESN":
-    nDelay = 0
-    nLag = 5 # Lag time for LSTM
-    approx_res_size = 250
-    radius = 0.9
-    sparsity = 0.5
+
+nDelay = 0
+nLag = 5 # Lag time for LSTM
+approx_res_size = 250
+radius = 0.9
+sparsity = 0.5
 
 
 
@@ -79,17 +75,12 @@ model = ClassModel(rhs, h=h, uMin=uMin, uMax=uMax, dimZ=dimZ, typeUGrid='cube', 
 dataSet = ClassControlDataSet(model.h, T=Ttrain)
 
 # Create a sequence of controls
-uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=5, nhMax=20)
-uTrain, iuTrain = dataSet.createControlSequence(model, h = model.h, T=500.0, typeSequence=[0.0], nhMin=10, nhMax=10, u=uTrain,iu=iuTrain)
-
-if method == "ESN":
-    uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=10, nhMax=10)
+uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=10, nhMax=10)
 
 # Create a data set (and save it to an npz file)
 dataSet.createData(model=model, y0=y0, u=uTrain)
 
 # prepare data according to the desired reduction scheme
-
 data = dataSet.prepareData(model, method='Y', rawData=dataSet.rawData, nLag=nLag, nDelay=nDelay)
 
 # %%
@@ -97,29 +88,14 @@ data = dataSet.prepareData(model, method='Y', rawData=dataSet.rawData, nLag=nLag
 # -------------------------------------------------------------------------------------------------------------------- #
 # Surrogate modeling
 # -------------------------------------------------------------------------------------------------------------------- #
-
-if method == "EDMD":
-
-    surrogate = ClassSurrogateModel('EDMD.py', uGrid=model.uGrid, 
-                                    h=nLag * model.h, dimZ=model.dimZ, 
-                                    z0=y0, nDelay=nDelay, nLag=nLag, 
-                                    nMonomials=nMonomials, epsUpdate=0.05)
     
-elif method == "LSTM":
-    
-    surrogate = ClassSurrogateModel('LSTM.py', uGrid=model.uGrid, 
-                                    h=nLag * model.h, dimZ=model.dimZ, 
-                                    z0=y0, nDelay=nDelay, nhidden=nhidden) 
-    
-elif method == "ESN":
-    
-    surrogate = ClassSurrogateModel('ESN.py', uGrid=model.uGrid, 
+surrogate = ClassSurrogateModel('ESN.py', uGrid=model.uGrid, 
                                     h=nLag * model.h, dimZ=model.dimZ, 
                                     z0=y0, nDelay=0, nLag=nLag,
                                     approx_res_size=approx_res_size,spectral_radius = radius, sparsity=sparsity) 
     
 surrogate.createROM(dataSet.rawData)
-#surrogate.createROM(data)
+
     
 # %% 
 
@@ -136,15 +112,9 @@ for i in range(int(steps/nLag)):
     u[nLag * i :nLag * (i+1),0] = model.uGrid[iu[i,0]]
 
 
-y0 = dataSet.rawData.z[0][start,:]
-
-temp = dataSet.rawData.z[0][start:start-nDelay*nLag-1:-nLag,:]
-z0 = np.reshape(temp, [dimZ*(nDelay+1)])
-
-if method == "ESN":
-
-    y0 = dataSet.rawData.y[-1][-1, :]
-    z0 = dataSet.rawData.z[-1][-1, :]
+# Start with last point of training data
+y0 = dataSet.rawData.y[-1][-nLag, :]
+z0 = dataSet.rawData.z[-1][-nLag, :]
 
 y_model, t_model = surrogate.integrateDiscreteInput(z0, 0.0, iu)
 y_ode,_, t_ode,_ = model.integrate(y0,u,0.0)

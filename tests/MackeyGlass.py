@@ -1,3 +1,8 @@
+from sys import path
+from os import getcwd, sep
+path.append(getcwd()[:getcwd().rfind(sep)])
+
+
 from QuaSiModO import *
 from visualization import *
 import os
@@ -16,7 +21,7 @@ nGridU = 2  # number of parts the grid is split into (--> uGrid = [-2, 0, 2])
 uGrid = np.array([uMin, [0.0], uMax])
 
 Ttrain = 2.0  # Time for the simulation in the traing data generation
-nLag = 1  # Lag time for EDMD
+nLag = 5  # Lag time for EDMD
 nMonomials = 2  # Max order of monomials for EDMD
 
 tau = 2.0
@@ -115,7 +120,7 @@ plot(z0={'t': tOpt, 'z0': zF[0], 'iplot': 0},
 # -------------------------------------------------------------------------------------------------------------------- #
 
 # Define reference trajectory for second state variable (iRef = 1)
-TRef = T + 2.0
+TRef = T + 5.0
 nRef = int(round(TRef / h)) + 1
 zRef = np.zeros([nRef, 1], dtype=float)
 
@@ -129,7 +134,7 @@ reference = ClassReferenceTrajectory(model, T=TRef, zRef=zRef)
 MPC = ClassMPC(np=10, nc=1, typeOpt='continuous', scipyMinimizeMethod='SLSQP')  # scipyMinimizeMethod=
 
 # Weights for the objective function
-Q = [1.0, 1.0, 1.0, 1.0, 1.0]  # reference tracking: (z - deltaZ)^T * Q * (z - deltaZ)
+Q = [1.0, 0.0, 0.0, 0.0, 0.0]  # reference tracking: (z - deltaZ)^T * Q * (z - deltaZ)
 R = [0.0]  # control cost: u^T * R * u
 S = [0.0]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 
@@ -141,17 +146,17 @@ S = [0.0]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 resultCont = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, z0=z0, T=T, Q=Q, R=R, S=S)
 
 plot(z={'t': resultCont.t, 'z': resultCont.z, 'reference': reference, 'iplot': 0},
-     u={'t': resultCont.t[:-1], 'u': resultCont.u, 'iplot': 1},
-     J={'t': resultCont.t[:-1], 'J': resultCont.J, 'iplot': 2},
-     nFev={'t': resultCont.t[:-1], 'nFev': resultCont.nFev, 'iplot': 3})
+     u={'t': resultCont.t, 'u': resultCont.u, 'iplot': 1},
+     J={'t': resultCont.t, 'J': resultCont.J, 'iplot': 2},
+     nFev={'t': resultCont.t, 'nFev': resultCont.nFev, 'iplot': 3})
 
 # 2) Surrogate model, integer control computed via relaxation and sum up rounding
 MPC.typeOpt = 'SUR'
 result_SUR = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, z0=z0, T=T, Q=Q, R=R, S=S)
 
 plot(z={'t': result_SUR.t, 'z': result_SUR.z, 'reference': reference, 'iplot': 0},
-     u={'t': result_SUR.t[:-1], 'u': result_SUR.u, 'iplot': 1},
-     J={'t': result_SUR.t[:-1], 'J': result_SUR.J, 'iplot': 2},
-     nFev={'t': result_SUR.t[:-1], 'nFev': result_SUR.nFev, 'iplot': 3},
-     alpha={'t': result_SUR.t[:-1], 'alpha': result_SUR.alpha, 'iplot': 4},
-     omega={'t': result_SUR.t[:-1], 'omega': result_SUR.omega, 'iplot': 5})
+     u={'t': result_SUR.t, 'u': result_SUR.u, 'iplot': 1},
+     J={'t': result_SUR.t, 'J': result_SUR.J, 'iplot': 2},
+     nFev={'t': result_SUR.t, 'nFev': result_SUR.nFev, 'iplot': 3},
+     alpha={'t': result_SUR.t, 'alpha': result_SUR.alpha, 'iplot': 4},
+     omega={'t': result_SUR.t, 'omega': result_SUR.omega, 'iplot': 5})

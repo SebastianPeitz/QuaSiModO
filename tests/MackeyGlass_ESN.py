@@ -1,3 +1,8 @@
+from sys import path
+from os import getcwd, sep
+path.append(getcwd()[:getcwd().rfind(sep)])
+
+
 from QuaSiModO import *
 from visualization import *
 import os
@@ -36,7 +41,7 @@ y0.append(interpolate.splev(tTau, tck, der=0))
 params = {'tau': tau}
 
 
-pathData = 'tests/results/MackeyGlass/data_ESN_1_0_v2'
+pathData = 'tests/results/MackeyGlass/data_ESN_1_0'
 savePath_mat = 'tests/results/MackeyGlass/result_ESN_1_0.mat'
 
 approx_res_size = 200
@@ -76,7 +81,7 @@ z0 = dataSet.rawData.z[-1][-nLag, :]
 # -------------------------------------------------------------------------------------------------------------------- #
 
 surrogate = ClassSurrogateModel('ESN.py', uGrid=model.uGrid, h=nLag * model.h, dimZ=model.dimZ,
-                                z0=z0, nDelay=0, nLag=nLag,
+                                z0=z0, nDelay=0, nLag=nLag, 
                                 approx_res_size=approx_res_size,spectral_radius = radius, sparsity=sparsity)
 
 
