@@ -1,3 +1,8 @@
+from sys import path
+from os import getcwd, sep
+path.append(getcwd()[:getcwd().rfind(sep)])
+
+
 from QuaSiModO import *
 from visualization import *
 
@@ -134,39 +139,39 @@ surrogate.createROM(data)
 # Test surrogate model
 # -------------------------------------------------------------------------------------------------------------------- #
 
-# start = np.random.randint(nDelay + 1, dataSet.rawData.z[0].shape[0])
-# steps = 1000
+start = np.random.randint(nDelay + 1, dataSet.rawData.z[0].shape[0])
+steps = 5000
 
-# iu = np.random.randint(0,3,[int(steps/nLag),1])
-# u = np.zeros([steps,1])
-# for i in range(int(steps/nLag)):
-#     u[nLag * i :nLag * (i+1),0] = model.uGrid[iu[i,0]]
-
-
-# y0_test = dataSet.rawData.z[0][start,:]
-# y_ode,_, t_ode,_ = model.integrate(y0_test,u,0.0)
+iu = np.random.randint(0,nGridU + 1,[int(steps/nLag),1])
+u = np.zeros([steps,1])
+for i in range(int(steps/nLag)):
+    u[nLag * i :nLag * (i+1),0] = model.uGrid[iu[i,0]]
 
 
-# temp = dataSet.rawData.z[0][start:start-nDelay-1:-1,:]
-# temp = np.reshape(temp,[1,(nDelay+1),dimZ])
-# temp = temp[:,::-1,:]
-# y0_test =  np.reshape(temp,[dimZ*(nDelay+1)])
-# y_model, t_model = surrogate.integrateDiscreteInput(y0_test, 0.0, iu)
+y0_test = dataSet.rawData.z[0][start,:]
+y_ode,_, t_ode,_ = model.integrate(y0_test,u,0.0)
 
 
-# fig, axs = plt.subplots(nrows = 3, ncols=1, constrained_layout=True,figsize=(10, 6))
-# plt.title("Test performance", fontsize=12)
-# for i in range(3):
+temp = dataSet.rawData.z[0][start:start-nDelay-1:-1,:]
+temp = np.reshape(temp,[1,(nDelay+1),dimZ])
+temp = temp[:,::-1,:]
+y0_test =  np.reshape(temp,[dimZ*(nDelay+1)])
+y_model, t_model = surrogate.integrateDiscreteInput(y0_test, 0.0, iu)
 
-#     axs[i].plot(t_model, y_model[:,i], linewidth=2)
-#     axs[i].plot(t_ode, y_ode[:,i], linewidth=2)
-#     axs[i].set_ylabel(r"$x[$" + str(i) + r"$]$", fontsize=12)
 
-# plt.xlabel(r"$t$", fontsize=12) 
+fig, axs = plt.subplots(nrows = 3, ncols=1, constrained_layout=True,figsize=(10, 6))
+plt.title("Test performance", fontsize=12)
+for i in range(3):
 
-# # plt.savefig("Figures/test_prediction_surrogate.pdf", bbox_inches="tight")
+    axs[i].plot(t_model, y_model[:,i], linewidth=2)
+    axs[i].plot(t_ode, y_ode[:,i], linewidth=2)
+    axs[i].set_ylabel(r"$x[$" + str(i) + r"$]$", fontsize=12)
 
-# plt.show()
+plt.xlabel(r"$t$", fontsize=12) 
+
+# plt.savefig("Figures/test_prediction_surrogate.pdf", bbox_inches="tight")
+
+plt.show()
 
 # %%
 

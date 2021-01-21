@@ -1,3 +1,8 @@
+from sys import path
+from os import getcwd, sep
+path.append(getcwd()[:getcwd().rfind(sep)])
+
+
 import OpenFOAM
 
 from OpenFOAM.classesOpenFOAM import *
