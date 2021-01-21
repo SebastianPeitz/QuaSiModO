@@ -3,6 +3,10 @@ from os import getcwd, sep
 path.append(getcwd()[:getcwd().rfind(sep)])
 
 
+from sys import path
+from os import getcwd, sep
+path.append(getcwd()[:getcwd().rfind(sep)])
+
 from QuaSiModO import *
 from visualization import *
 
