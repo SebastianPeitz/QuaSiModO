@@ -19,7 +19,7 @@ from visualization import *
 # -------------------------------------------------------------------------------------------------------------------- #
 # OpenFOAM: Define model
 # -------------------------------------------------------------------------------------------------------------------- #
-pathProblem = 'OpenFOAM/problems/cylinder'
+pathProblem = path.join(pathMain, 'OpenFOAM/problems/cylinder')
 pathData = path.join(pathOut, 'data')
 nProc = 1
 
@@ -126,7 +126,7 @@ reference = ClassReferenceTrajectory(model, T=TRef, zRef=zRef)
 MPC = ClassMPC(np=5, nc=1, nch=1, typeOpt='continuous', scipyMinimizeMethod='SLSQP') # scipyMinimizeMethod='trust-constr'
 
 # Weights for the objective function
-Q = [1.0, 0.2]  # reference tracking: (z - deltaZ)^T * Q * (z - deltaZ)
+Q = [0.1, 1.0]  # reference tracking: (z - deltaZ)^T * Q * (z - deltaZ)
 R = [0.0]  # control cost: u^T * R * u
 S = [0.1]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 

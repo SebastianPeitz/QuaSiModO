@@ -19,7 +19,7 @@ from visualization import *
 # -------------------------------------------------------------------------------------------------------------------- #
 # OpenFOAM: Define model
 # -------------------------------------------------------------------------------------------------------------------- #
-pathProblem = 'OpenFOAM/problems/cylinder'
+pathProblem = path.join(pathMain, 'OpenFOAM/problems/cylinder')
 pathData = path.join(pathOut, 'data')
 pathSurrogate = path.join(pathOut, 'surrogate_3')
 reuseSurrogate = True

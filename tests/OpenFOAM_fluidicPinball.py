@@ -19,7 +19,7 @@ from visualization import *
 # -------------------------------------------------------------------------------------------------------------------- #
 # OpenFOAM: Define model
 # -------------------------------------------------------------------------------------------------------------------- #
-pathProblem = 'OpenFOAM/problems/fluidicPinball'
+pathProblem = path.join(pathMain, 'OpenFOAM/problems/fluidicPinball')
 pathData = path.join(pathOut, 'data')
 nProc = 4
 

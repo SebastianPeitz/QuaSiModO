@@ -1,7 +1,17 @@
-from sys import path
-from os import getcwd, sep
-path.append(getcwd()[:getcwd().rfind(sep)])
+# -------------------------------------------------------------------------------------------------------------------- #
+# Add path and create output folder
+from os import sep, makedirs, path
+from sys import path as syspath
 
+# Add path
+fileName = path.abspath(__file__)
+pathMain = fileName[:fileName.find(sep + 'QuaSiModO') + 10]
+syspath.append(pathMain)
+
+# Create output folder
+pathOut = path.join(pathMain, 'tests', 'results', fileName[fileName.rfind(sep) + 1:-3])
+makedirs(pathOut, exist_ok=True)
+# -------------------------------------------------------------------------------------------------------------------- #
 
 from OpenFOAM.classesOpenFOAM import *
 from visualization import *
@@ -9,10 +19,9 @@ from visualization import *
 # -------------------------------------------------------------------------------------------------------------------- #
 # OpenFOAM: Define model
 # -------------------------------------------------------------------------------------------------------------------- #
-pathProblem = 'OpenFOAM/problems/cylinder'
-pathOut = 'tests/results/cylinderPOD'
-pathData = pathOut + '/data'
-pathROM = pathOut + '/ROM'
+pathProblem = path.join(pathMain, 'OpenFOAM/problems/cylinder')
+pathData = path.join(pathOut, 'data')
+pathROM = path.join(pathOut, 'ROM')
 nProc = 1
 BCWrite = 'BCWrite'
 
