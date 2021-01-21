@@ -1,11 +1,20 @@
-from sys import path
-from os import getcwd, sep
-path.append(getcwd()[:getcwd().rfind(sep)])
+# -------------------------------------------------------------------------------------------------------------------- #
+# Add path and create output folder
+from os import sep, makedirs, path
+from sys import path as syspath
 
+# Add path
+fileName = path.abspath(__file__)
+pathMain = fileName[:fileName.find(sep + 'QuaSiModO') + 10]
+syspath.append(pathMain)
+
+# Create output folder
+pathOut = path.join(pathMain, 'tests', 'results', fileName[fileName.rfind(sep) + 1:-3])
+makedirs(pathOut, exist_ok=True)
+# -------------------------------------------------------------------------------------------------------------------- #
 
 from QuaSiModO import *
 from visualization import *
-from scipy.io import savemat
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Set parameters
@@ -37,18 +46,9 @@ t = np.linspace(0.0, T, int(T/h) + 1)
 u = np.zeros([len(t), 1], dtype=float)
 
 [y, z, t, _] = model.integrate(y0, u, 0.0)
-savemat('tests/results/COVID19-ucontrolled.mat', {'y': y, 't': t, 'u': u})
+#savemat(path.join(pathOut, 'COVID19-uncontrolled.mat'), {'y': y, 't': t, 'u': u})
 
 z0 = z[0, :]
-
-# plot(S={'t': t, 'S': y[:, 0], 'iplot': 0},
-#      I={'t': t, 'I': y[:, 1], 'iplot': 1},
-#      D={'t': t, 'D': y[:, 2], 'iplot': 2},
-#      A={'t': t, 'A': y[:, 3], 'iplot': 3},
-#      R={'t': t, 'R': y[:, 4], 'iplot': 4},
-#      T={'t': t, 'T': y[:, 5], 'iplot': 5},
-#      H={'t': t, 'H': y[:, 6], 'iplot': 6},
-#      E={'t': t, 'E': y[:, 7], 'iplot': 7})
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Data collection
@@ -70,9 +70,6 @@ for i in range(10):
     y1[1:] = 1e-2 * np.random.rand(7)
     y1[0] = 1.0 - np.sum(y1[1:])
     yTrain.append(y1)
-# yTrain.append(y[12 * 25, :])
-# yTrain.append(y[12 * 50, :])
-# yTrain.append(y[12 * 100, :])
 
 dataSet.createData(model=model, y0=yTrain, u=uTrain)
 
@@ -118,7 +115,7 @@ plot(z={'t': resultCont.t, 'z': resultCont.z, 'iplot': 0},
      u={'t': resultCont.t, 'u': resultCont.u, 'iplot': 1},
      J={'t': resultCont.t, 'J': resultCont.J, 'iplot': 2},
      nFev={'t': resultCont.t, 'nFev': resultCont.nFev, 'iplot': 3})
-resultCont.saveMat('tests/results/COVID19-cont.mat')
+resultCont.saveMat('COVID19-cont', pathOut)
 
 # 2) Surrogate model, integer control computed via relaxation and sum up rounding
 MPC.typeOpt = 'SUR_coarse'
@@ -130,4 +127,4 @@ plot(z={'t': result_SUR.t, 'z': result_SUR.z, 'iplot': 0},
      nFev={'t': result_SUR.t, 'nFev': result_SUR.nFev, 'iplot': 3},
      alpha={'t': result_SUR.t, 'alpha': result_SUR.alpha, 'iplot': 4},
      omega={'t': result_SUR.t, 'omega': result_SUR.omega, 'iplot': 5})
-result_SUR.saveMat('tests/results/COVID19-SUR.mat')
+result_SUR.saveMat('COVID19-SUR', pathOut)

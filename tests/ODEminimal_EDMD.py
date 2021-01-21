@@ -1,6 +1,13 @@
-from sys import path
-from os import getcwd, sep
-path.append(getcwd()[:getcwd().rfind(sep)])
+# -------------------------------------------------------------------------------------------------------------------- #
+# Add path and create output folder
+from os import sep, makedirs, path
+from sys import path as syspath
+
+# Add path
+fileName = path.abspath(__file__)
+pathMain = fileName[:fileName.find(sep + 'QuaSiModO') + 10]
+syspath.append(pathMain)
+# -------------------------------------------------------------------------------------------------------------------- #
 
 from QuaSiModO import *
 from visualization import *

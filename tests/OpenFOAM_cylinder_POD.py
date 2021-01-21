@@ -87,7 +87,7 @@ yC, _ = of.readSolution(899.0, 899.0, 1.0, whichField='U')
 z0 = dataSet.rawData.z[0][0, :]
 surrogate = ClassSurrogateModel('POD.py', uGrid=model.uGrid, h=model.h, dimZ=z0.shape[0], z0=z0,
                                 yBase=yBase.T, yC=yC.T, nModes=nModes, of=of, Re=Re)
-if os.path.exists(pathROM):
+if os.path.exists(pathROM + '.pkl'):
     surrogate.createROM(data, loadPath=pathROM)
 else:
     surrogate.createROM(data, savePath=pathROM)
@@ -190,7 +190,7 @@ S = [0.0]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 # -------------------------------------------------------------------------------------------------------------------- #
 
 # 1) Surrogate model, continuous input obtained via relaxation of the integer input in uGrid
-resultCont = MPC.run(model, reference, surrogateModel=surrogate, T=T, Q=Q, R=R, S=S, trySymmetricIC=True)
+resultCont = MPC.run(model, reference, surrogateModel=surrogate, T=T, Q=Q, R=R, S=S)
 
 plot(z={'t': resultCont.t, 'z': resultCont.z, 'reference': reference, 'iplot': 0},
      u={'t': resultCont.t, 'u': resultCont.u, 'iplot': 1},
@@ -200,7 +200,7 @@ plot(z={'t': resultCont.t, 'z': resultCont.z, 'reference': reference, 'iplot': 0
 
 # 2) Surrogate model, integer control computed via relaxation and sum up rounding
 MPC.typeOpt = 'SUR_coarse'
-result_SUR = MPC.run(model, reference, surrogateModel=surrogate, T=T, Q=Q, R=R, S=S, trySymmetricIC=True)
+result_SUR = MPC.run(model, reference, surrogateModel=surrogate, T=T, Q=Q, R=R, S=S)
 
 plot(z={'t': result_SUR.t, 'z': result_SUR.z, 'reference': reference, 'iplot': 0},
      u={'t': result_SUR.t, 'u': result_SUR.u, 'iplot': 1},

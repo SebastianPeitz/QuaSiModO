@@ -6,6 +6,7 @@ from scipy.optimize import Bounds
 from scipy.optimize import LinearConstraint
 from scipy.io import savemat
 from sys import exit
+from os import path
 import importlib
 import itertools
 import numpy as np
@@ -811,6 +812,7 @@ class ClassSurrogateModel:
     createSurrogateModel = None
     saveSurrogateModel = None
     updateSurrogateModel = None
+    loadSurrogateModel = None
     calcJ = None
 
     uGrid = None
@@ -1415,8 +1417,14 @@ class ClassResult:
         np.savez(savePath, y=self.y, z=self.z, u=self.u, J=self.J, t=self.t, nFev=self.nFev, iu=self.iu,
                  alpha=self.alpha, omega=self.omega)
 
-    def saveMat(self, savePath):
-        savemat(savePath, {'y': self.y, 'z': self.z, 'u': self.u, 'J': self.J, 't': self.t, 'nFev': self.nFev,
+    def saveMat(self, fileName, filePath=None):
+        if fileName.find('.mat') < 0:
+            fileName += '.mat'
+        if filePath is not None:
+            fout = path.join(filePath, fileName)
+        else:
+            fout = fileName
+        savemat(fout, {'y': self.y, 'z': self.z, 'u': self.u, 'J': self.J, 't': self.t, 'nFev': self.nFev,
                            'iu': self.iu, 'alpha': self.alpha, 'omega': self.omega},
                 appendmat=True)
 

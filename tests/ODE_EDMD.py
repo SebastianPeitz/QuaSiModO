@@ -1,7 +1,17 @@
-from sys import path
-from os import getcwd, sep
-path.append(getcwd()[:getcwd().rfind(sep)])
+# -------------------------------------------------------------------------------------------------------------------- #
+# Add path and create output folder
+from os import sep, makedirs, path, getcwd
+from sys import path as syspath
 
+# Add path
+fileName = path.abspath(__file__)
+pathMain = fileName[:fileName.find(sep + 'QuaSiModO') + 10]
+syspath.append(pathMain)
+
+# Create output folder
+pathOut = path.join(pathMain, 'tests', 'results', fileName[fileName.rfind(sep) + 1:-3])
+makedirs(pathOut, exist_ok=True)
+# -------------------------------------------------------------------------------------------------------------------- #
 
 from QuaSiModO import *
 from visualization import *
@@ -46,10 +56,10 @@ dataSet = ClassControlDataSet(h=model.h, T=Ttrain)
 uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=10, nhMax=20)
 
 # Create a data set (and save it to an npz file)
-dataSet.createData(model=model, y0=y0, u=uTrain, savePath='tests/results/TestODE_Data')
+dataSet.createData(model=model, y0=y0, u=uTrain, savePath=pathOut + 'TestODE_Data')
 
 # Load the data set that was created using the loadPath
-dataSet.createData(loadPath='tests/results/TestODE_Data')
+dataSet.createData(loadPath=pathOut + 'TestODE_Data')
 
 # prepare data according to the desired reduction scheme
 data = dataSet.prepareData(model, method='Y_dX', rawData=dataSet.rawData, nLag=nLag)
@@ -125,46 +135,31 @@ S = [0.0]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 # Solve different MPC problems (via "MPC.run") and plot the result
 # -------------------------------------------------------------------------------------------------------------------- #
 
-# # 1) Full model, continuous control
-# MPC.nch = nLag
-# result_FullContinuous = MPC.run(model, reference, y0=y0, T=T, Q=Q, R=R, S=S)
-#
-# plot(z={'t': result_FullContinuous.t, 'z': result_FullContinuous.z, 'reference': reference, 'iplot': 0},
-#      u={'t': result_FullContinuous.t[:-1], 'u': result_FullContinuous.u, 'iplot': 1},
-#      J={'t': result_FullContinuous.t[:-1], 'J': result_FullContinuous.J, 'iplot': 2},
-#      nFev={'t': result_FullContinuous.t[:-1], 'nFev': result_FullContinuous.nFev, 'iplot': 3})
-#
-# # 2) Full model, integer control, computed via total evaluation of all control combinations on the control horizon
-# MPC.typeOpt = 'combinatorial'
-# result_FullCombinatorial = MPC.run(model, reference, y0=y0, T=T, Q=Q, R=R, S=S)
-#
-# plot(z={'t': result_FullCombinatorial.t, 'z': result_FullCombinatorial.z, 'reference': reference, 'iplot': 0},
-#      u={'t': result_FullCombinatorial.t[:-1], 'u': result_FullCombinatorial.u, 'iplot': 1},
-#      J={'t': result_FullCombinatorial.t[:-1], 'J': result_FullCombinatorial.J, 'iplot': 2},
-#      nFev={'t': result_FullCombinatorial.t[:-1], 'nFev': result_FullCombinatorial.nFev, 'iplot': 3})
-
-# 3) Surrogate model, continuous input obtained via relaxation of the integer input in uGrid
+# 1) Surrogate model, continuous input obtained via relaxation of the integer input in uGrid
 MPC.typeOpt = 'continuous'
 MPC.nch = 1
 result_SurrogateContinuous = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S)
+result_SurrogateContinuous.saveMat('MPC-Cont', pathOut)
 
 plot(z={'t': result_SurrogateContinuous.t, 'z': result_SurrogateContinuous.z, 'reference': reference, 'iplot': 0},
      u={'t': result_SurrogateContinuous.t, 'u': result_SurrogateContinuous.u, 'iplot': 1},
      J={'t': result_SurrogateContinuous.t, 'J': result_SurrogateContinuous.J, 'iplot': 2},
      nFev={'t': result_SurrogateContinuous.t, 'nFev': result_SurrogateContinuous.nFev, 'iplot': 3})
 
-# 4) Surrogate model, integer control computed via total evaluation of all control combinations on the control horizon
+# 2) Surrogate model, integer control computed via total evaluation of all control combinations on the control horizon
 MPC.typeOpt = 'combinatorial'
 result_SurrogateCombinatorial = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S)
+result_SurrogateCombinatorial.saveMat('MPC-Combinatorial', pathOut)
 
 plot(z={'t': result_SurrogateCombinatorial.t, 'z': result_SurrogateCombinatorial.z, 'reference': reference, 'iplot': 0},
      u={'t': result_SurrogateCombinatorial.t, 'u': result_SurrogateCombinatorial.u, 'iplot': 1},
      J={'t': result_SurrogateCombinatorial.t, 'J': result_SurrogateCombinatorial.J, 'iplot': 2},
      nFev={'t': result_SurrogateCombinatorial.t, 'nFev': result_SurrogateCombinatorial.nFev, 'iplot': 3})
 
-# 5) Surrogate model, integer control computed via relaxation and sum up rounding
+# 3) Surrogate model, integer control computed via relaxation and sum up rounding
 MPC.typeOpt = 'SUR'
 result_SurrogateSUR = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S)
+result_SurrogateSUR.saveMat('MPC-SUR', pathOut)
 
 plot(z={'t': result_SurrogateSUR.t, 'z': result_SurrogateSUR.z, 'reference': reference, 'iplot': 0},
      u={'t': result_SurrogateSUR.t, 'u': result_SurrogateSUR.u, 'iplot': 1},
@@ -173,9 +168,10 @@ plot(z={'t': result_SurrogateSUR.t, 'z': result_SurrogateSUR.z, 'reference': ref
      alpha={'t': result_SurrogateSUR.t, 'alpha': result_SurrogateSUR.alpha, 'iplot': 4},
      omega={'t': result_SurrogateSUR.t, 'omega': result_SurrogateSUR.omega, 'iplot': 5})
 
-# 6) Surrogate model, integer control computed via relaxation and sum up rounding
+# 4) Surrogate model, integer control computed via relaxation and sum up rounding
 MPC.typeOpt = 'SUR_coarse'
 result_SurrogateSURc = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S)
+result_SurrogateSURc.saveMat('MPC-SUR-coarse', pathOut)
 
 plot(z={'t': result_SurrogateSURc.t, 'z': result_SurrogateSURc.z, 'reference': reference, 'iplot': 0},
      u={'t': result_SurrogateSURc.t, 'u': result_SurrogateSURc.u, 'iplot': 1},
@@ -184,7 +180,3 @@ plot(z={'t': result_SurrogateSURc.t, 'z': result_SurrogateSURc.z, 'reference': r
      alpha={'t': result_SurrogateSURc.t, 'alpha': result_SurrogateSURc.alpha, 'iplot': 4},
      omega={'t': result_SurrogateSURc.t, 'omega': result_SurrogateSURc.omega, 'iplot': 5})
 
-# -------------------------------------------------------------------------------------------------------------------- #
-# Store the final result to a .mat file
-# -------------------------------------------------------------------------------------------------------------------- #
-result_SurrogateSUR.saveMat("tests/results/TestODE_MPC_SUR_Surrogate.mat")

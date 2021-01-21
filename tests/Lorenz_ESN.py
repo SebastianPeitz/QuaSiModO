@@ -1,7 +1,17 @@
-from sys import path
-from os import getcwd, sep
-path.append(getcwd()[:getcwd().rfind(sep)])
+# -------------------------------------------------------------------------------------------------------------------- #
+# Add path and create output folder
+from os import sep, makedirs, path
+from sys import path as syspath
 
+# Add path
+fileName = path.abspath(__file__)
+pathMain = fileName[:fileName.find(sep + 'QuaSiModO') + 10]
+syspath.append(pathMain)
+
+# Create output folder
+pathOut = path.join(pathMain, 'tests', 'results', fileName[fileName.rfind(sep) + 1:-3])
+makedirs(pathOut, exist_ok=True)
+# -------------------------------------------------------------------------------------------------------------------- #
 
 from QuaSiModO import *
 from visualization import *
@@ -16,14 +26,13 @@ import matplotlib.pyplot as plt
 # -------------------------------------------------------------------------------------------------------------------- #
 
 
-sigma = 10.0 # Paramters for Lorenz system
+sigma = 10.0  # Paramters for Lorenz system
 r = 28.0
-b = 8/3
+b = 8 / 3
 
-
-T = 10.0 # Time for the MPC problem
+T = 10.0  # Time for the MPC problem
 h = 0.01  # Time step for the ODE solver, for the training data sampling and for the MPC step length
-y0 = [0.5,-0.5,1.0]  # Initial condition of the ODE
+y0 = [0.5, -0.5, 1.0]  # Initial condition of the ODE
 uMin = [-50.0]  # Minimal value of the input (also defines dimU)
 uMax = [50.0]  # Maximal value of the input (also defines dimU)
 
@@ -32,31 +41,25 @@ nGridU = 1  # number of parts the grid is split into (--> uGrid = [-2, 0, 2])
 
 Ttrain = 1000  # Time for the simulation in the traing data generation
 
-
 nDelay = 0
-nLag = 5 # Lag time for LSTM
+nLag = 5  # Lag time for LSTM
 approx_res_size = 250
 radius = 0.9
 sparsity = 0.5
 
 
-
-# %%
-    
 # -------------------------------------------------------------------------------------------------------------------- #
 # ODE: Define right-hand side as a a function of the state y and the control u
 # -------------------------------------------------------------------------------------------------------------------- #
 def rhs(y_, u_):
-    
-    y = np.zeros([3,]);
+    y = np.zeros([3, ])
 
-    y[0] = sigma * (y_[1] - y_[0]);
-    y[1] = r * y_[0] - y_[0] * y_[2] - y_[1] + u_;
-    y[2] = y_[0] * y_[1] - b * y_[2];    
-    
+    y[0] = sigma * (y_[1] - y_[0])
+    y[1] = r * y_[0] - y_[0] * y_[2] - y_[1] + u_
+    y[2] = y_[0] * y_[1] - b * y_[2]
+
     return y
 
-# %%
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Model creation
@@ -64,8 +67,6 @@ def rhs(y_, u_):
 
 # Create model class
 model = ClassModel(rhs, h=h, uMin=uMin, uMax=uMax, dimZ=dimZ, typeUGrid='cube', nGridU=nGridU)
-
-# %%
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Data collection
@@ -83,21 +84,16 @@ dataSet.createData(model=model, y0=y0, u=uTrain)
 # prepare data according to the desired reduction scheme
 data = dataSet.prepareData(model, method='Y', rawData=dataSet.rawData, nLag=nLag, nDelay=nDelay)
 
-# %%
-
 # -------------------------------------------------------------------------------------------------------------------- #
 # Surrogate modeling
 # -------------------------------------------------------------------------------------------------------------------- #
-    
-surrogate = ClassSurrogateModel('ESN.py', uGrid=model.uGrid, 
-                                    h=nLag * model.h, dimZ=model.dimZ, 
-                                    z0=y0, nDelay=0, nLag=nLag,
-                                    approx_res_size=approx_res_size,spectral_radius = radius, sparsity=sparsity) 
-    
-surrogate.createROM(dataSet.rawData)
 
-    
-# %% 
+surrogate = ClassSurrogateModel('ESN.py', uGrid=model.uGrid,
+                                h=nLag * model.h, dimZ=model.dimZ,
+                                z0=y0, nDelay=0, nLag=nLag,
+                                approx_res_size=approx_res_size, spectral_radius=radius, sparsity=sparsity)
+
+surrogate.createROM(dataSet.rawData)
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Test surrogate model
@@ -106,35 +102,30 @@ surrogate.createROM(dataSet.rawData)
 start = np.random.randint(nDelay + 1, dataSet.rawData.z[0].shape[0])
 steps = 1000
 
-iu = np.random.randint(0,nGridU + 1,[int(steps/nLag),1])
-u = np.zeros([steps,1])
-for i in range(int(steps/nLag)):
-    u[nLag * i :nLag * (i+1),0] = model.uGrid[iu[i,0]]
-
+iu = np.random.randint(0, nGridU + 1, [int(steps / nLag), 1])
+u = np.zeros([steps, 1])
+for i in range(int(steps / nLag)):
+    u[nLag * i:nLag * (i + 1), 0] = model.uGrid[iu[i, 0]]
 
 # Start with last point of training data
 y0 = dataSet.rawData.y[-1][-nLag, :]
 z0 = dataSet.rawData.z[-1][-nLag, :]
 
 y_model, t_model = surrogate.integrateDiscreteInput(z0, 0.0, iu)
-y_ode,_, t_ode,_ = model.integrate(y0,u,0.0)
+y_ode, _, t_ode, _ = model.integrate(y0, u, 0.0)
 
-    
-fig, axs = plt.subplots(nrows = 3, ncols=1, constrained_layout=True,figsize=(10, 6))
+fig, axs = plt.subplots(nrows=3, ncols=1, constrained_layout=True, figsize=(10, 6))
 plt.title("Test performance", fontsize=12)
 for i in range(3):
-
-    axs[i].plot(t_model, y_model[:,i], linewidth=2)
-    axs[i].plot(t_ode, y_ode[:,i], linewidth=2)
+    axs[i].plot(t_model, y_model[:, i], linewidth=2)
+    axs[i].plot(t_ode, y_ode[:, i], linewidth=2)
     axs[i].set_ylabel(r"$x[$" + str(i) + r"$]$", fontsize=12)
 
-plt.xlabel(r"$t$", fontsize=12) 
+plt.xlabel(r"$t$", fontsize=12)
 
-# plt.savefig("Figures/test_prediction_surrogate.pdf", bbox_inches="tight")
-    
+# plt.savefig(path.join(pathOut, 'Figure_test_prediction_surrogate.pdf'), bbox_inches="tight")
+
 plt.show()
- 
-# %%
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Initilize MPC
@@ -147,11 +138,11 @@ TRef = T + 2.0
 nRef = int(round(TRef / h)) + 1
 zRef = np.zeros([nRef, 1], dtype=float)
 
-## Sinus trajectory:
+# Sine trajectory:
 tRef = np.array(np.linspace(0.0, T, nRef))
 zRef[:, 0] = 1.5 * np.sin(2.0 * tRef * 2.0 * np.pi / TRef)
 
-## Piecewise constant
+# Piecewise constant
 # zRef[:, 0] = 2.0
 # tRef = np.array(np.linspace(0.0, T, nRef))
 # zRef[np.where(tRef >= 10.0/10*2), 0] = 1.0
@@ -161,17 +152,13 @@ zRef[:, 0] = 1.5 * np.sin(2.0 * tRef * 2.0 * np.pi / TRef)
 
 reference = ClassReferenceTrajectory(model, T=TRef, zRef=zRef, iRef=iRef)
 
-
 # Create class for the MPC problem
 MPC = ClassMPC(np=3, nc=1, typeOpt='continuous', scipyMinimizeMethod='SLSQP')  # scipyMinimizeMethod=
-
 
 # Weights for the objective function
 Q = [0.0, 1.0, 0.0]  # reference tracking: (z - deltaZ)^T * Q * (z - deltaZ)
 R = [0.0]  # control cost: u^T * R * u
 S = [0.0]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
-
-# %%
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Solve different MPC problems (via "MPC.run") and plot the result
@@ -182,7 +169,7 @@ resultCont = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q
 
 print("shapes:")
 
-plot(z={'t': resultCont.t, 'z': np.reshape(resultCont.z[:,1],[resultCont.z.shape[0],1]), 'reference': reference, 'iplot': 0},
+plot(z={'t': resultCont.t, 'z': np.reshape(resultCont.z[:, 1], [resultCont.z.shape[0], 1]), 'reference': reference, 'iplot': 0},
      u={'t': resultCont.t, 'u': resultCont.u, 'iplot': 1},
      J={'t': resultCont.t, 'J': resultCont.J, 'iplot': 2},
      nFev={'t': resultCont.t, 'nFev': resultCont.nFev, 'iplot': 3})

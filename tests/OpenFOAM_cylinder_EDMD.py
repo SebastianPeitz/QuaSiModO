@@ -1,7 +1,17 @@
-from sys import path
-from os import getcwd, sep
-path.append(getcwd()[:getcwd().rfind(sep)])
+# -------------------------------------------------------------------------------------------------------------------- #
+# Add path and create output folder
+from os import sep, makedirs, path
+from sys import path as syspath
 
+# Add path
+fileName = path.abspath(__file__)
+pathMain = fileName[:fileName.find(sep + 'QuaSiModO') + 10]
+syspath.append(pathMain)
+
+# Create output folder
+pathOut = path.join(pathMain, 'tests', 'results', fileName[fileName.rfind(sep) + 1:-3])
+makedirs(pathOut, exist_ok=True)
+# -------------------------------------------------------------------------------------------------------------------- #
 
 from OpenFOAM.classesOpenFOAM import *
 from visualization import *
@@ -10,8 +20,7 @@ from visualization import *
 # OpenFOAM: Define model
 # -------------------------------------------------------------------------------------------------------------------- #
 pathProblem = 'OpenFOAM/problems/cylinder'
-pathOut = 'tests/results/cylinder'
-pathData = pathOut + '/data'
+pathData = path.join(pathOut, 'data')
 nProc = 1
 
 nInputs = 1
@@ -127,23 +136,23 @@ S = [0.1]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 
 # 1) Surrogate model, continuous input obtained via relaxation of the integer input in uGrid
 resultCont = MPC.run(model, reference, surrogateModel=surrogate, T=T, Q=Q, R=R, S=S, updateSurrogate=True)
+resultCont.saveMat('MPC-Cont', pathOut)
 
 plot(z={'t': resultCont.t, 'z': resultCont.z, 'reference': reference, 'iplot': 0},
      u={'t': resultCont.t, 'u': resultCont.u, 'iplot': 1},
      J={'t': resultCont.t, 'J': resultCont.J, 'iplot': 2},
-     nFev={'t': resultCont.t, 'nFev': resultCont.nFev, 'iplot': 3},
-     fOut=pathOut + '/MPC1')
+     nFev={'t': resultCont.t, 'nFev': resultCont.nFev, 'iplot': 3})
 
 # 2) Surrogate model, integer control computed via relaxation and sum up rounding
 MPC.typeOpt = 'SUR_coarse'
 result_SUR = MPC.run(model, reference, surrogateModel=surrogate, T=T, Q=Q, R=R, S=S, updateSurrogate=True)
+result_SUR.saveMat('MPC-SUR', pathOut)
 
 plot(z={'t': result_SUR.t, 'z': result_SUR.z, 'reference': reference, 'iplot': 0},
      u={'t': result_SUR.t, 'u': result_SUR.u, 'iplot': 1},
      J={'t': result_SUR.t, 'J': result_SUR.J, 'iplot': 2},
      nFev={'t': result_SUR.t, 'nFev': result_SUR.nFev, 'iplot': 3},
      alpha={'t': result_SUR.t, 'alpha': result_SUR.alpha, 'iplot': 4},
-     omega={'t': result_SUR.t, 'omega': result_SUR.omega, 'iplot': 5},
-     fOut=pathOut + '/MPC2')
+     omega={'t': result_SUR.t, 'omega': result_SUR.omega, 'iplot': 5})
 
 print('Done')

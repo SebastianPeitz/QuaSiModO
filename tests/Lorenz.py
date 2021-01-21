@@ -1,15 +1,23 @@
-from sys import path
-from os import getcwd, sep
-path.append(getcwd()[:getcwd().rfind(sep)])
+# -------------------------------------------------------------------------------------------------------------------- #
+# Add path and create output folder
+from os import sep, makedirs, path
+from sys import path as syspath
 
+# Add path
+fileName = path.abspath(__file__)
+pathMain = fileName[:fileName.find(sep + 'QuaSiModO') + 10]
+syspath.append(pathMain)
+
+# Create output folder
+pathOut = path.join(pathMain, 'tests', 'results', fileName[fileName.rfind(sep) + 1:-3])
+makedirs(pathOut, exist_ok=True)
+# -------------------------------------------------------------------------------------------------------------------- #
 
 from QuaSiModO import *
 from visualization import *
 
 import numpy as np
 import matplotlib.pyplot as plt
-
-# %%
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Choose method and set parameters
@@ -51,9 +59,6 @@ elif method == "LSTM":
     epochs = 20
     batch_size = 72
 
-
-# %%
-
 # -------------------------------------------------------------------------------------------------------------------- #
 # ODE: Define right-hand side as a a function of the state y and the control u
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -76,17 +81,12 @@ else:
 
         return y
 
-
-# %%
-
 # -------------------------------------------------------------------------------------------------------------------- #
 # Model creation
 # -------------------------------------------------------------------------------------------------------------------- #
 
 # Create model class
 model = ClassModel(rhs, h=h, uMin=uMin, uMax=uMax, dimZ=dimZ, typeUGrid='cube', nGridU=nGridU)
-
-# %%
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Data collection
@@ -112,8 +112,6 @@ dataSet.createData(model=model, y0=y0, u=uTrain)
 
 data = dataSet.prepareData(model, method='Y', rawData=dataSet.rawData, nLag=nLag, nDelay=nDelay)
 
-# %%
-
 # -------------------------------------------------------------------------------------------------------------------- #
 # Surrogate modeling
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -133,8 +131,6 @@ elif method == "LSTM":
 
 surrogate.createROM(data)
 
-# %% 
-
 # -------------------------------------------------------------------------------------------------------------------- #
 # Test surrogate model
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -142,34 +138,30 @@ surrogate.createROM(data)
 start = np.random.randint(nDelay + 1, dataSet.rawData.z[0].shape[0])
 steps = 5000
 
-iu = np.random.randint(0,nGridU + 1,[int(steps/nLag),1])
-u = np.zeros([steps,1])
-for i in range(int(steps/nLag)):
-    u[nLag * i :nLag * (i+1),0] = model.uGrid[iu[i,0]]
+iu = np.random.randint(0, nGridU + 1, [int(steps / nLag), 1])
+u = np.zeros([steps, 1])
+for i in range(int(steps / nLag)):
+    u[nLag * i: nLag * (i + 1), 0] = model.uGrid[iu[i, 0]]
 
+y0_test = dataSet.rawData.z[0][start, :]
+y_ode, _, t_ode, _ = model.integrate(y0_test, u, 0.0)
 
-y0_test = dataSet.rawData.z[0][start,:]
-y_ode,_, t_ode,_ = model.integrate(y0_test,u,0.0)
-
-
-temp = dataSet.rawData.z[0][start:start-nDelay-1:-1,:]
-temp = np.reshape(temp,[1,(nDelay+1),dimZ])
-temp = temp[:,::-1,:]
-y0_test =  np.reshape(temp,[dimZ*(nDelay+1)])
+temp = dataSet.rawData.z[0][start:start - nDelay - 1:-1, :]
+temp = np.reshape(temp, [1, (nDelay + 1), dimZ])
+temp = temp[:, ::-1, :]
+y0_test = np.reshape(temp, [dimZ * (nDelay + 1)])
 y_model, t_model = surrogate.integrateDiscreteInput(y0_test, 0.0, iu)
 
-
-fig, axs = plt.subplots(nrows = 3, ncols=1, constrained_layout=True,figsize=(10, 6))
+fig, axs = plt.subplots(nrows=3, ncols=1, constrained_layout=True, figsize=(10, 6))
 plt.title("Test performance", fontsize=12)
 for i in range(3):
-
-    axs[i].plot(t_model, y_model[:,i], linewidth=2)
-    axs[i].plot(t_ode, y_ode[:,i], linewidth=2)
+    axs[i].plot(t_model, y_model[:, i], linewidth=2)
+    axs[i].plot(t_ode, y_ode[:, i], linewidth=2)
     axs[i].set_ylabel(r"$x[$" + str(i) + r"$]$", fontsize=12)
 
-plt.xlabel(r"$t$", fontsize=12) 
+plt.xlabel(r"$t$", fontsize=12)
 
-# plt.savefig("Figures/test_prediction_surrogate.pdf", bbox_inches="tight")
+# plt.savefig(path.join(pathOut, 'Figure_test_prediction_surrogate.pdf'), bbox_inches="tight")
 
 plt.show()
 
@@ -217,25 +209,24 @@ S = [0.0]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 
 if flagNonlinCon:  # 'tests/results/Burgers_POD_SUR'
     if flagContRef:
-        save_path_cont = 'tests/results/Lorenz_EDMD_NonlinU_RefCont_cont.mat'
-        save_path_SUR = 'tests/results/Lorenz_EDMD_NonlinU_RefCont_SUR.mat'
+        save_path_cont = path.join(pathOut, 'Lorenz_EDMD_NonlinU_RefCont_cont')
+        save_path_SUR = path.join(pathOut, 'Lorenz_EDMD_NonlinU_RefCont_SUR')
     else:
-        save_path_cont = 'tests/results/Lorenz_EDMD_NonlinU_RefPWC_cont.mat'
-        save_path_SUR = 'tests/results/Lorenz_EDMD_NonlinU_RefPWC_SUR.mat'
+        save_path_cont = path.join(pathOut, 'Lorenz_EDMD_NonlinU_RefPWC_cont')
+        save_path_SUR = path.join(pathOut, 'Lorenz_EDMD_NonlinU_RefPWC_SUR')
 
 else:
     if flagContRef:
-        save_path_cont = 'tests/results/Lorenz_EDMD_LinU_RefCont_cont.mat'
-        save_path_SUR = 'tests/results/Lorenz_EDMD_LinU_RefCont_SUR.mat'
+        save_path_cont = path.join(pathOut, 'Lorenz_EDMD_LinU_RefCont_cont')
+        save_path_SUR = path.join(pathOut, 'Lorenz_EDMD_LinU_RefCont_SUR')
     else:
-        save_path_cont = 'tests/results/Lorenz_EDMD_LinU_RefPWC_cont.mat'
-        save_path_SUR = 'tests/results/Lorenz_EDMD_LinU_RefPWC_SUR.mat'
+        save_path_cont = path.join(pathOut, 'Lorenz_EDMD_LinU_RefPWC_cont')
+        save_path_SUR = path.join(pathOut, 'Lorenz_EDMD_LinU_RefPWC_SUR')
 
 # 1) Surrogate model, continuous input obtained via relaxation of the integer input in uGrid
 resultCont = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S)
 
-plot(z={'t': resultCont.t, 'z': np.reshape(resultCont.z[:, 1], [resultCont.z.shape[0], 1]), 'reference': reference,
-        'iplot': 0},
+plot(z={'t': resultCont.t, 'z': np.reshape(resultCont.z[:, 1], [resultCont.z.shape[0], 1]), 'reference': reference, 'iplot': 0},
      u={'t': resultCont.t, 'u': resultCont.u, 'iplot': 1},
      J={'t': resultCont.t, 'J': resultCont.J, 'iplot': 2},
      nFev={'t': resultCont.t, 'nFev': resultCont.nFev, 'iplot': 3})
@@ -245,12 +236,10 @@ resultCont.saveMat(save_path_cont)
 MPC.typeOpt = 'SUR'
 result_SUR = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S)
 
-plot(z={'t': result_SUR.t, 'z': np.reshape(result_SUR.z[:, 1], [result_SUR.z.shape[0], 1]), 'reference': reference,
-        'iplot': 0},
+plot(z={'t': result_SUR.t, 'z': np.reshape(result_SUR.z[:, 1], [result_SUR.z.shape[0], 1]), 'reference': reference, 'iplot': 0},
      u={'t': result_SUR.t, 'u': result_SUR.u, 'iplot': 1},
      J={'t': result_SUR.t, 'J': result_SUR.J, 'iplot': 2},
      nFev={'t': result_SUR.t, 'nFev': result_SUR.nFev, 'iplot': 3},
      alpha={'t': result_SUR.t, 'alpha': result_SUR.alpha, 'iplot': 4},
      omega={'t': result_SUR.t, 'omega': result_SUR.omega, 'iplot': 5})
 result_SUR.saveMat(save_path_SUR)
-

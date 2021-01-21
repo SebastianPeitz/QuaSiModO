@@ -1,12 +1,20 @@
-from sys import path
-from os import getcwd, sep
-path.append(getcwd()[:getcwd().rfind(sep)])
+# -------------------------------------------------------------------------------------------------------------------- #
+# Add path and create output folder
+from os import sep, makedirs, path
+from sys import path as syspath
 
+# Add path
+fileName = path.abspath(__file__)
+pathMain = fileName[:fileName.find(sep + 'QuaSiModO') + 10]
+syspath.append(pathMain)
+
+# Create output folder
+pathOut = path.join(pathMain, 'tests', 'results', fileName[fileName.rfind(sep) + 1:-3])
+makedirs(pathOut, exist_ok=True)
+# -------------------------------------------------------------------------------------------------------------------- #
 
 from QuaSiModO import *
 from visualization import *
-import os
-
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Set parameters
@@ -30,7 +38,7 @@ dimZ = 5
 y0 = list()
 nSpline = 4
 tSpline = np.linspace(-tau, 0.0, nSpline)
-tTau = np.linspace(-tau, 0.0, int(tau/h) + 1)
+tTau = np.linspace(-tau, 0.0, int(tau / h) + 1)
 for i in range(100):
     tck = interpolate.splrep(tSpline, 0.5 + 2.0 * np.random.rand(nSpline), s=0)
     y0.append(interpolate.splev(tTau, tck, der=0))
@@ -38,14 +46,13 @@ for i in range(100):
 # y0 = np.linspace(0.5, 1.0, int(tau/h) + 1)
 params = {'tau': tau}
 
-pathData = 'tests/results/MackeyGlass/data'
-
 # -------------------------------------------------------------------------------------------------------------------- #
 # Model creation
 # -------------------------------------------------------------------------------------------------------------------- #
 
 # Create model class
-model = ClassModel('mackey-glass.py', h=h, uMin=uMin, uMax=uMax, dimZ=dimZ, params=params, typeUGrid='cube', nGridU=nGridU, uGrid=uGrid)
+model = ClassModel('mackey-glass.py', h=h, uMin=uMin, uMax=uMax, dimZ=dimZ, params=params, typeUGrid='cube',
+                   nGridU=nGridU, uGrid=uGrid)
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Data collection
@@ -56,24 +63,23 @@ dataSet = ClassControlDataSet(h=model.h, T=Ttrain)
 
 # Create a sequence of controls
 uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=5, nhMax=20)
-uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=5, nhMax=20, u=uTrain, iu=iuTrain)
+uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=5, nhMax=20, u=uTrain,
+                                                iu=iuTrain)
 # uTrain, iuTrain = None, None
 # for i in range(model.nU):
 #     uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence=model.uGrid[i], u=uTrain, iu=iuTrain)
 
 # Create a data set (and save it to an npz file)
-if not os.path.exists(pathData):
-     os.makedirs(pathData)
-
-if os.path.exists(pathData + '.npz'):
+pathData = path.join(pathOut, 'data')
+if path.exists(pathData + '.npz'):
     dataSet.createData(loadPath=pathData)
 else:
-     dataSet.createData(model=model, y0=y0, u=uTrain, savePath=pathData)
+    dataSet.createData(model=model, y0=y0, u=uTrain, savePath=pathData)
 
 # prepare data according to the desired reduction scheme
 data = dataSet.prepareData(model, method='Y', rawData=dataSet.rawData, nLag=nLag, nDelay=0)
 
-#plotPhase3D(dataSet.rawData.z[0][:, 0], dataSet.rawData.z[0][:, 2], dataSet.rawData.z[0][:, 4])
+# plotPhase3D(dataSet.rawData.z[0][:, 0], dataSet.rawData.z[0][:, 2], dataSet.rawData.z[0][:, 4])
 
 y0 = dataSet.rawData.y[0][-1, :]
 z0 = dataSet.rawData.z[0][-1, :]
@@ -97,12 +103,11 @@ tF = np.linspace(0.0, Tcomp, int(Tcomp / (model.h)) + 1)
 zS = list()
 zF = list()
 for i in range(model.nU):
-
-    iu = i * np.ones([len(tS)-1, 1], dtype=int)
+    iu = i * np.ones([len(tS) - 1, 1], dtype=int)
     [z, tSurrogate] = surrogate.integrateDiscreteInput(z0, 0.0, iu)
     zS.append(z)
 
-    u = model.uGrid[i, 0] * np.ones([len(tF)-1, 1], dtype=int)
+    u = model.uGrid[i, 0] * np.ones([len(tF) - 1, 1], dtype=int)
     [yOpt, zOpt, tOpt, model] = model.integrate(y0, u, 0.0)
     zF.append(zOpt)
 
