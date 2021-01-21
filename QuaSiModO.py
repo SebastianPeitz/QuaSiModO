@@ -629,7 +629,7 @@ class ClassControlDataSet:
                 dy = list()
                 dz = list()
                 for i in range(len(rawData.z)):
-                    dy.append(calcDerivative(rawData.y[i][:-1,:], model, typeDer, U=rawData.u[i]))
+                    dy.append(calcDerivative(rawData.y[i], model, typeDer, U=rawData.u[i]))
                     dz.append(model.observable(dy[-1]))
             else:
                 dz = list()

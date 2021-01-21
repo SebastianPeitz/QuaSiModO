@@ -99,8 +99,22 @@ def ddeint(func, g, tt, fargs=None):
 
 def simulateModel(y0, t0, u, model):
 
-    beta, gamma, eta = 2.0, 1.0, 9.65
     tau = model.params['tau']
+
+    if 'beta' in model.params:
+        beta = model.params['beta']
+    else:
+        beta = 2.0
+
+    if 'gamma' in model.params:
+        gamma = model.params['gamma']
+    else:
+        gamma = 1.0
+
+    if 'eta' in model.params:
+        eta = model.params['eta']
+    else:
+        eta = 9.65
 
     if 'SigZ' in model.params:
         SigZ = model.params['SigZ']
