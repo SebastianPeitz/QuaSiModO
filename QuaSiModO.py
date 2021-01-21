@@ -1198,10 +1198,10 @@ class ClassMPC:
 
                 t0 = np.zeros((1,))
 
-                if not len(yInit) == 0:
-                    yInit = np.concatenate((np.reshape(y0, [1, yInit.shape[1]]), yInit), axis=0)
-                zInit = np.concatenate(([z0], zInit), axis=0)
-                tInit = np.concatenate((t0, tInit), axis=0)
+                # if not len(yInit) == 0:
+                #     yInit = np.concatenate((np.reshape(y0, [1, yInit.shape[1]]), yInit), axis=0)
+                # zInit = np.concatenate(([z0], zInit), axis=0)
+                # tInit = np.concatenate((t0, tInit), axis=0)
 
                 z0 = stackZ0(zInit, surrogateModel)
                 if len(yInit) > 0:

@@ -51,7 +51,10 @@ class ESNControl():
     def eval_reservoir_layer(self, input, pred_len, state_init=None):
         
         # scale input
-        input = (input-self.data_shift)/self.data_scale
+        nDelay = int(input.shape[1]/self.data_shift.shape[0])
+        mean = np.reshape(np.repeat(np.reshape(self.data_shift,[1,self.n_outputs]),nDelay, axis=0),[self.n_inputs,])
+        std = np.reshape(np.repeat(np.reshape(self.data_scale,[1,self.n_outputs]),nDelay, axis=0),[self.n_inputs,])
+        input = (input-mean)/std
 
         states = np.zeros([self.n_reservoir, pred_len + 1])
         
