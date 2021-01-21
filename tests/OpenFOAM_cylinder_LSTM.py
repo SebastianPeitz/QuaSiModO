@@ -23,7 +23,7 @@ pathProblem = 'OpenFOAM/problems/cylinder'
 pathData = path.join(pathOut, 'data')
 pathSurrogate = path.join(pathOut, 'surrogate_3')
 reuseSurrogate = True
-nProc = 1
+nProc = 8
 
 nInputs = 1
 dimInputs = 1
@@ -47,21 +47,24 @@ Re = 100.0
 hFOAM = 0.01
 dimSpace = 2
 
-T = 10.0
+T = 20.1
 h = 0.05
 
-uMin = [-2.0]
-uMax = [2.0]
-nGridU = 2  # number of parts the grid is split into (--> uGrid = [-2, 0, 2])
+uMin = [-5.0]
+uMax = [5.0]
+nGridU = 2  # number of parts the grid is split into
+# (uMin = [-2.0], uMax = [2.0], nGridU = 2 --> uGrid = [-2, 0, 2])
 
 dimZ = 2
 
 # Ttrain = 100.0  # Time for the simulation in the traing data generation
 Ttrain = 500.0
 nLag = 2  # Lag time for LSTM
-nDelay = 12  # Number of delays for modeling
-nhidden = 2000  # 1200 #800  # number of hidden neurons in LSTM cell
-epochs = 20  # 20 #15
+nDelay = 15  # Number of delays for modeling
+nhidden = 500  # number of hidden neurons in LSTM cell
+epochs = 2  # Trainin epochs
+batch_size = 75  # batch size for LSTM - training
+
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Model creation
@@ -80,13 +83,13 @@ model = of.createOrUpdateModel(uMin=uMin, uMax=uMax, hWrite=h, dimZ=dimZ, typeUG
 dataSet = ClassControlDataSet(h=model.h, T=Ttrain)
 
 # Create a sequence of controls
-uTrain, iuTrain = dataSet.createControlSequence(model, T=5.0, h=model.h, typeSequence='piecewiseConstant',
-                                                nhMin=nLag * 5, nhMax=nLag * 10)
-uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=10, nhMax=20, u=uTrain,
-                                                iu=iuTrain)
+
+uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=nLag*2, nhMax=nLag*5)
+uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=nLag*10, nhMax=nLag*10,u=uTrain,iu=iuTrain)
 
 # Create a data set (and save it to an npz file)
 if os.path.exists(pathData + '.npz'):
+    print("reuse data")
     dataSet.createData(loadPath=pathData)
 else:
     dataSet.createData(model=model, u=uTrain, savePath=pathData)
@@ -173,27 +176,32 @@ plot(z={'t': dataSet.rawData.t[0][:steps], 'z': dataSet.rawData.z[0][:steps, :mo
 # Define reference trajectory
 TRef = T + 20.0
 nRef = int(round(TRef / h)) + 1
+t = np.linspace(0, T, nRef)
+sinRef = np.sin(t)
 zRef = np.zeros([nRef, 2], dtype=float)
+zRef[:,1] = sinRef
 
 reference = ClassReferenceTrajectory(model, T=TRef, zRef=zRef)
 
-# Create class for the MPC problem with max fun eval
-# options = dict()
-# options['maxiter'] = 10
-options = None
-MPC = ClassMPC(np=5, nc=1, nch=1, typeOpt='continuous', scipyMinimizeMethod='SLSQP',
-               scipyMinimizeOptions=options)  # scipyMinimizeMethod='trust-constr'
+# Create class for the MPC problem
+options = {'eps': 1e-9}
+
+MPC = ClassMPC(np=5, nc=1, nch=1, typeOpt='continuous', scipyMinimizeMethod='SLSQP', scipyMinimizeOptions=options)
 
 # Weights for the objective function
-Q = [1.0, 1.0]  # reference tracking: (z - deltaZ)^T * Q * (z - deltaZ)
+Q = [0.0, 1.0]  # reference tracking: (z - deltaZ)^T * Q * (z - deltaZ)
+L = [0.0, 0.0]  # reference tracking: (z - deltaZ)^T * L -> want to minimize mean lift
 R = [0.0]  # control cost: u^T * R * u
-S = [0.01]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
+S = [0.0]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Solve different MPC problems (via "MPC.run") and plot the result
 # -------------------------------------------------------------------------------------------------------------------- #
 
 # 1) Surrogate model, continuous input obtained via relaxation of the integer input in uGrid
+save_path_cont = pathOut + 'LSTM_5_grid2_lift'
+save_path_SUR = pathOut + 'LSTM_5_grid2_lift_SUR'
+
 resultCont = MPC.run(model, reference, surrogateModel=surrogate, T=T, Q=Q, R=R, S=S, updateSurrogate=True)
 resultCont.saveMat('MPC-Cont', pathOut)
 
