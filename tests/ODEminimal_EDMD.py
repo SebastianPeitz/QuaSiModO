@@ -2,13 +2,9 @@ from sys import path
 from os import getcwd, sep
 path.append(getcwd()[:getcwd().rfind(sep)])
 
-
-from sys import path
-from os import getcwd, sep
-path.append(getcwd()[:getcwd().rfind(sep)])
-
 from QuaSiModO import *
 from visualization import *
+
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # ODE: Define right-hand side as a a function of the state y and the control u
