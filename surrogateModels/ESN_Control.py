@@ -71,10 +71,9 @@ class ESNControl():
         output = np.zeros((predict_length,self.n_outputs))
         for i in range(predict_length):
             x_aug = x.copy()
-            for j in range(2,np.shape(x_aug)[0]-2):
-                if (np.mod(j,2)==0):
-                    x_aug[j] = (x[j-1]*x[j-2]).copy()
-            out = np.squeeze(np.asarray(np.dot(self.Wout[iu],x_aug)))
+            for j in range(2, x_aug.shape[0]-2,2):
+                x_aug[j] = (x[j-1]*x[j-2])
+            out = np.reshape(np.dot(self.Wout[iu],x_aug), [self.n_outputs,])
             output[i,:] = out
         
         # unscale output
@@ -93,17 +92,17 @@ class ESNControl():
             m_ctrl = (iuTrain == i)
             m_ctrl = m_ctrl.reshape([m_ctrl.shape[0],])
             
-            idenmat = self.beta * sparse.identity(self.n_reservoir)
+            #transformation of reservoir state to improve performance
+            bias = self.beta * sparse.identity(self.n_reservoir)
             states_ctrl = states[:,m_ctrl].copy()
-            states2 = states_ctrl.copy()
-            for j in range(2,np.shape(states2)[0]-2):
-                if (np.mod(j,2)==0):
-                    states2[j,:] = (states_ctrl[j-1,:]*states_ctrl[j-2,:]).copy()
-            U = np.dot(states2,states2.transpose()) + idenmat
+            states_aug = states_ctrl.copy()
+            for j in range(2, states_aug.shape[0]-2,2):
+                states_aug[j,:] = (states_ctrl[j-1,:]*states_ctrl[j-2,:])
+            U = np.dot(states_aug, states_aug.T) + bias
             Uinv = np.linalg.inv(U)
             
             # train output layer via linear regression
-            Wout = np.dot(Uinv,np.dot(states2,dataY[m_ctrl,:]))
+            Wout = np.dot(Uinv,np.dot(states_aug, dataY[m_ctrl,:]))
             self.Wout[i] = Wout.T   
         
         print("Finished ESN-Training")
