@@ -122,8 +122,6 @@ def create_and_train_LSTM_model(modelData, Xtrain,Ytrain,Xval,Yval,dimZ):
     # train model
     model.fit(Xtrain, Ytrain, epochs=modelData.epochs, validation_data=(Xval,Yval), batch_size=modelData.batch_size, verbose=2, shuffle=True)
 
-
-
     return model
 
 
@@ -185,6 +183,5 @@ def updateSurrogateModel(modelData, z_rawData, _, iu):
         modelData.data_trainonline_y[current_control] = []
 
         updatePerformed = True
-
 
     return modelData, updatePerformed

@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
 import numpy as np
 import scipy.sparse as sparse
 #from scipy.sparse import linalg
@@ -37,15 +34,15 @@ class ESNControl():
     def init_reservoir(self):
         
         # Create Reservoir with size n_reservoir and given spectral radius 
-        A = sparse.rand(self.n_reservoir,self.n_reservoir,density=self.sparsity)
+        W_res = sparse.rand(self.n_reservoir,self.n_reservoir,density=self.sparsity)
 
-        max_eigv,_ = sparse.linalg.eigs(A, k=1, which='LM')
+        max_eigv,_ = sparse.linalg.eigs(W_res, k=1, which='LM')
         
         # Scale matrix according to desired spectral radius
-        self.A = A / (np.abs(max_eigv) * self.spectral_radius)
+        self.W_res = W_res / (np.abs(max_eigv) * self.spectral_radius)
         
         # Create input layer
-        self.Win = self.sigma * (-1 + 2 * np.random.rand(self.n_reservoir,self.n_inputs))
+        self.W_fb = self.sigma * (-1 + 2 * np.random.rand(self.n_reservoir,self.n_inputs))
             
 
     def eval_reservoir_layer(self, input, pred_len, state_init=None):
@@ -64,7 +61,7 @@ class ESNControl():
             states[:,0] = np.ones([self.n_reservoir,])
     
         for i in range(states.shape[1]-1):
-            states[:,i+1] = np.tanh(self.A.dot(states[:,i]) + np.dot(self.Win,input[i,:]))
+            states[:,i+1] = np.tanh(self.W_res.dot(states[:,i]) + np.dot(self.W_fb,input[i,:]))
         return states[:,1:]
     
     
