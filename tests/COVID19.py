@@ -5,7 +5,7 @@ from sys import path as syspath
 
 # Add path
 fileName = path.abspath(__file__)
-pathMain = fileName[:fileName.find(sep + 'QuaSiModO') + 10]
+pathMain = fileName[:fileName.lower().find(sep + 'quasimodo') + 10]
 syspath.append(pathMain)
 
 # Create output folder
@@ -109,13 +109,13 @@ S = [0.0]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 # -------------------------------------------------------------------------------------------------------------------- #
 
 # 1) Surrogate model, continuous input obtained via relaxation of the integer input in uGrid
-resultCont = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, L=L, R=R, S=S, updateSurrogate=False)
-
-plot(z={'t': resultCont.t, 'z': resultCont.z, 'iplot': 0},
-     u={'t': resultCont.t, 'u': resultCont.u, 'iplot': 1},
-     J={'t': resultCont.t, 'J': resultCont.J, 'iplot': 2},
-     nFev={'t': resultCont.t, 'nFev': resultCont.nFev, 'iplot': 3})
-resultCont.saveMat('COVID19-cont', pathOut)
+# resultCont = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, L=L, R=R, S=S, updateSurrogate=False)
+#
+# plot(z={'t': resultCont.t, 'z': resultCont.z, 'iplot': 0},
+#      u={'t': resultCont.t, 'u': resultCont.u, 'iplot': 1},
+#      J={'t': resultCont.t, 'J': resultCont.J, 'iplot': 2},
+#      nFev={'t': resultCont.t, 'nFev': resultCont.nFev, 'iplot': 3})
+# resultCont.saveMat('COVID19-cont', pathOut)
 
 # 2) Surrogate model, integer control computed via relaxation and sum up rounding
 MPC.typeOpt = 'SUR_coarse'

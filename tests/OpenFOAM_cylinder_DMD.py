@@ -5,7 +5,7 @@ from sys import path as syspath
 
 # Add path
 fileName = path.abspath(__file__)
-pathMain = fileName[:fileName.find(sep + 'QuaSiModO') + 10]
+pathMain = fileName[:fileName.lower().find(sep + 'quasimodo') + 10]
 syspath.append(pathMain)
 
 # Create output folder
@@ -48,14 +48,14 @@ dimSpace = 2
 T = 60.0
 h = 0.05
 
-uMin = [-2.0]
-uMax = [2.0]
+uMin = [-4.0]
+uMax = [4.0]
 nGridU = 2  # number of parts the grid is split into (--> uGrid = [-2, 0, 2])
 
-Ttrain = 100.0  # Time for the simulation in the traing data generation
-nLag = 1  # Lag time for EDMD
-nDelay = 2
-nMonomials = 0  # Max order of monomials for EDMD
+Ttrain = 200.0  # Time for the simulation in the traing data generation
+nLag = 2  # Lag time for EDMD
+nDelay = 0  # Number of delays for modeling
+nMonomials = 2  # Max order of monomials for EDMD
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Model creation
@@ -75,7 +75,7 @@ model = of.createOrUpdateModel(uMin=uMin, uMax=uMax, hWrite=h, typeUGrid='cube',
 dataSet = ClassControlDataSet(h=model.h, T=Ttrain)
 
 # Create a sequence of controls
-uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=2, nhMax=10)
+uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=5, nhMax=20)
 
 # Create a data set (and save it to an npz file)
 if os.path.exists(pathData + '.npz'):
@@ -84,7 +84,7 @@ else:
     dataSet.createData(model=model, u=uTrain, savePath=pathData)
 
 # prepare data according to the desired reduction scheme
-data = dataSet.prepareData(model, method='Y', rawData=dataSet.rawData, nDelay=nDelay)
+data = dataSet.prepareData(model, method='Y', rawData=dataSet.rawData, nLag=nLag, nDelay=nDelay)
 
 model.dimZ = dataSet.dimZ
 
@@ -93,7 +93,7 @@ model.dimZ = dataSet.dimZ
 # -------------------------------------------------------------------------------------------------------------------- #
 
 z0 = dataSet.rawData.z[0][0, :]
-surrogate = ClassSurrogateModel('EDMD.py', uGrid=model.uGrid, h=model.h, dimZ=z0.shape[0], z0=z0, nDelay=nDelay,
+surrogate = ClassSurrogateModel('EDMD.py', uGrid=model.uGrid, h=nLag * model.h, dimZ=model.dimZ, z0=z0, nDelay=nDelay,
                                 nLag=nLag, nMonomials=nMonomials, of=of, Re=Re, epsUpdate=0.05)
 surrogate.createROM(data)
 
@@ -102,20 +102,20 @@ surrogate.createROM(data)
 # -------------------------------------------------------------------------------------------------------------------- #
 
 # Define reference trajectory
-TRef = T + 2.0
+TRef = T + 20.0
 nRef = int(round(TRef / h)) + 1
 zRef = np.zeros([nRef, int(model.dimZ / 2)], dtype=float)
 iRef = np.array(range(1, model.dimZ, 2))
 reference = ClassReferenceTrajectory(model, T=TRef, zRef=zRef, iRef=iRef)
 
 # Create class for the MPC problem
-MPC = ClassMPC(np=20, nc=1, nch=1, typeOpt='continuous', scipyMinimizeMethod='SLSQP') # scipyMinimizeMethod='trust-constr'
+MPC = ClassMPC(np=5, nc=1, nch=1, typeOpt='continuous', scipyMinimizeMethod='SLSQP') # scipyMinimizeMethod='trust-constr'
 
 # Weights for the objective function
 Q = np.zeros([model.dimZ, 1], dtype=float)
 Q[1::2, 0] = 1.0
 R = [0.0]  # control cost: u^T * R * u
-S = [10.0]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
+S = [1e-3]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Solve different MPC problems (via "MPC.run") and plot the result

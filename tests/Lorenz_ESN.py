@@ -5,7 +5,7 @@ from sys import path as syspath
 
 # Add path
 fileName = path.abspath(__file__)
-pathMain = fileName[:fileName.find(sep + 'QuaSiModO') + 10]
+pathMain = fileName[:fileName.lower().find(sep + 'quasimodo') + 10]
 syspath.append(pathMain)
 
 # Create output folder

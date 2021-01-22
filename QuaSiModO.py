@@ -1217,7 +1217,7 @@ class ClassMPC:
                     result.add(0, model.writeY, 0, np.reshape(y0, [1, y0.shape[0]]), np.reshape(z0, [1, z0.shape[0]]),
                                np.zeros((1,)), None, None, None, None, init=True)
                 else:
-                    result.add(0, model.writeY, 0, None, np.reshape(z0, [1, z0.shape[0]]), np.zeros((1.0,)),
+                    result.add(0, model.writeY, 0, None, np.reshape(z0, [1, z0.shape[0]]), np.zeros((1,)),
                                None, None, None, None, init=True)
 
             alphaOptC, omegaOptC = None, None

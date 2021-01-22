@@ -5,7 +5,7 @@ from sys import path as syspath
 
 # Add path
 fileName = path.abspath(__file__)
-pathMain = fileName[:fileName.find(sep + 'QuaSiModO') + 10]
+pathMain = fileName[:fileName.lower().find(sep + 'quasimodo') + 10]
 syspath.append(pathMain)
 
 # Create output folder
@@ -125,13 +125,34 @@ plot(z={'t': dataSet.rawData.t[1], 'z': dataSet.rawData.z[1][:, :model.dimZ], 'i
 # Define reference trajectory for second state variable (iRef = 1)
 TRef = T + 2.0
 nRef = int(round(TRef / h)) + 1
-zRef = np.zeros([nRef, 1], dtype=float)
+zRef = np.zeros([nRef, 3], dtype=float)
 
 # zRef[:, 0] = 3.0
 tRef = np.array(np.linspace(0.0, T, nRef))
-zRef[:, 0] = 0.0 + 1.5 * np.sin(2.0 * tRef * 2.0 * np.pi / TRef)
+# zRef[:, 0] = 0.0 + 1.5 * np.sin(2.0 * tRef * 2.0 * np.pi / TRef)
 
-iRef = [1]
+zRef[:, 0] = 0.5
+zRef[:, 1] = -0.5
+
+iRef = np.where(tRef > 10.0)
+zRef[iRef, 0] = 1.0
+zRef[iRef, 1] = -1.0
+
+iRef = np.where(tRef > 20.0)
+zRef[iRef, :] = 0.0
+
+iRef = np.where(tRef > 30.0)
+zRef[iRef, 0] = -1.0
+zRef[iRef, 1] = -0.5
+
+iRef = np.where(tRef > 40.0)
+zRef[iRef, 0] = -0.5
+zRef[iRef, 1] = -1.0
+
+iRef = np.where(tRef > 50.0)
+zRef[iRef, :] = 0.0
+
+iRef = [1, 3, 5]
 
 reference = ClassReferenceTrajectory(model, T=TRef, zRef=zRef, iRef=iRef)
 

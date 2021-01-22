@@ -5,7 +5,7 @@ from sys import path as syspath
 
 # Add path
 fileName = path.abspath(__file__)
-pathMain = fileName[:fileName.find(sep + 'QuaSiModO') + 10]
+pathMain = fileName[:fileName.lower().find(sep + 'quasimodo') + 10]
 syspath.append(pathMain)
 
 # Create output folder
@@ -28,8 +28,8 @@ dx = 1.0 / 24.0
 Re = 100.0
 xObs = [0.25, 0.75, 1.25, 1.75]
 
-uMin = [-0.075]
-uMax = [0.075]
+uMin = [-0.025, -0.025]
+uMax = [0.075, 0.075]
 # uMin = [-0.1, -0.1, -0.1]
 # uMax = [0.1, 0.1, 0.1]
 #uMin = [-0.5, -0.5, -0.5]

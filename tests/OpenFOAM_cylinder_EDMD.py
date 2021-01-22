@@ -5,7 +5,7 @@ from sys import path as syspath
 
 # Add path
 fileName = path.abspath(__file__)
-pathMain = fileName[:fileName.find(sep + 'QuaSiModO') + 10]
+pathMain = fileName[:fileName.lower().find(sep + 'quasimodo') + 10]
 syspath.append(pathMain)
 
 # Create output folder
@@ -48,15 +48,15 @@ dimSpace = 2
 T = 60.0
 h = 0.05
 
-uMin = [-2.0]
-uMax = [2.0]
+uMin = [-4.0]
+uMax = [4.0]
 nGridU = 2  # number of parts the grid is split into (--> uGrid = [-2, 0, 2])
 
 dimZ = 2
 
-Ttrain = 100.0  # Time for the simulation in the traing data generation
+Ttrain = 200.0  # Time for the simulation in the traing data generation
 nLag = 2  # Lag time for EDMD
-nDelay = 4  # Number of delays for modeling
+nDelay = 2  # Number of delays for modeling
 nMonomials = 0  # Max order of monomials for EDMD
 
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -76,7 +76,7 @@ model = of.createOrUpdateModel(uMin=uMin, uMax=uMax, hWrite=h, dimZ=dimZ, typeUG
 dataSet = ClassControlDataSet(h=model.h, T=Ttrain)
 
 # Create a sequence of controls
-uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=2, nhMax=20)
+uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=5, nhMax=20)
 
 # Create a data set (and save it to an npz file)
 if os.path.exists(pathData + '.npz'):
@@ -128,7 +128,7 @@ MPC = ClassMPC(np=5, nc=1, nch=1, typeOpt='continuous', scipyMinimizeMethod='SLS
 # Weights for the objective function
 Q = [0.1, 1.0]  # reference tracking: (z - deltaZ)^T * Q * (z - deltaZ)
 R = [0.0]  # control cost: u^T * R * u
-S = [0.1]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
+S = [1e-3]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Solve different MPC problems (via "MPC.run") and plot the result

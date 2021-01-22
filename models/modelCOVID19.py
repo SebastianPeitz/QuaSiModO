@@ -45,6 +45,7 @@ def simulateModel(y0, t0, u, model):
 
     sigmaRand = np.zeros([1, 8], dtype=float)
     sigmaRand[0, 1] = 1.0 / 3.0
+    sigmaRand *= 0.2
 
     for i in range(0, nt - 1):
         IDARTHE = 2.0
