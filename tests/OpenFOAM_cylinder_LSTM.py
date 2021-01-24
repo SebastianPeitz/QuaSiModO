@@ -57,8 +57,7 @@ nGridU = 2  # number of parts the grid is split into
 
 dimZ = 2
 
-# Ttrain = 100.0  # Time for the simulation in the traing data generation
-Ttrain = 500.0
+Ttrain = 500.0  # Time for the simulation in the traing data generation
 nLag = 2  # Lag time for LSTM
 nDelay = 15  # Number of delays for modeling
 nhidden = 500  # number of hidden neurons in LSTM cell
@@ -103,7 +102,8 @@ data = dataSet.prepareData(model, method='Y', rawData=dataSet.rawData, nLag=nLag
 
 z0 = dataSet.rawData.z[0][0, :]
 surrogate = ClassSurrogateModel('LSTM.py', uGrid=model.uGrid, h=nLag * model.h, dimZ=model.dimZ, z0=z0, nDelay=nDelay,
-                                nhidden=nhidden, epochs=epochs)
+                                nhidden=nhidden, epochs=epochs, nLag=nLag,batch_size=batch_size)
+
 if os.path.exists(pathSurrogate + '.pkl') and reuseSurrogate:
     surrogate.createROM(data, loadPath=pathSurrogate)
 else:
@@ -202,7 +202,7 @@ S = [0.0]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 save_path_cont = pathOut + 'LSTM_5_grid2_lift'
 save_path_SUR = pathOut + 'LSTM_5_grid2_lift_SUR'
 
-resultCont = MPC.run(model, reference, surrogateModel=surrogate, T=T, Q=Q, R=R, S=S, updateSurrogate=True)
+resultCont = MPC.run(model, reference, surrogateModel=surrogate, T=T, Q=Q, R=R, S=S, updateSurrogate=False,iuInit=1)
 resultCont.saveMat('MPC-Cont', pathOut)
 
 plot(z={'t': resultCont.t, 'z': resultCont.z, 'reference': reference, 'iplot': 0},
@@ -212,7 +212,7 @@ plot(z={'t': resultCont.t, 'z': resultCont.z, 'reference': reference, 'iplot': 0
 
 # 2) Surrogate model, integer control computed via relaxation and sum up rounding
 MPC.typeOpt = 'SUR_coarse'
-result_SUR = MPC.run(model, reference, surrogateModel=surrogate, T=T, Q=Q, R=R, S=S, updateSurrogate=True)
+result_SUR = MPC.run(model, reference, surrogateModel=surrogate, T=T, Q=Q, R=R, S=S, iuInit=1)
 result_SUR.saveMat('MPC-SUR', pathOut)
 
 plot(z={'t': result_SUR.t, 'z': result_SUR.z, 'reference': reference, 'iplot': 0},
