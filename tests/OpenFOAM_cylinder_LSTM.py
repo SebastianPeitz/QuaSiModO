@@ -199,10 +199,8 @@ S = [0.0]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 # -------------------------------------------------------------------------------------------------------------------- #
 
 # 1) Surrogate model, continuous input obtained via relaxation of the integer input in uGrid
-save_path_cont = pathOut + 'LSTM_5_grid2_lift'
-save_path_SUR = pathOut + 'LSTM_5_grid2_lift_SUR'
 
-resultCont = MPC.run(model, reference, surrogateModel=surrogate, T=T, Q=Q, R=R, S=S, updateSurrogate=False,iuInit=1)
+resultCont = MPC.run(model, reference, surrogateModel=surrogate, T=T, Q=Q, R=R, S=S, iuInit=1)
 resultCont.saveMat('MPC-Cont', pathOut)
 
 plot(z={'t': resultCont.t, 'z': resultCont.z, 'reference': reference, 'iplot': 0},
