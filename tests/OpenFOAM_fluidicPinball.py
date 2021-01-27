@@ -23,7 +23,7 @@ pathProblem = path.join(pathMain, 'OpenFOAM/problems/fluidicPinball')
 pathData = path.join(pathOut, 'data')
 nProc = 4
 
-nInputs = 3
+nInputs = 2
 dimInputs = 1
 iInputs = [0]
 
@@ -48,8 +48,8 @@ dimSpace = 2
 T = 60.0
 h = 0.05
 
-uMin = [-2.0, -2.0, -2.0]
-uMax = [2.0, 2.0, 2.0]
+uMin = [-2.0, -2.0]
+uMax = [2.0, 2.0]
 nGridU = 1  # number of parts the grid is split into
 
 dimZ = 6
@@ -66,7 +66,7 @@ nMonomials = 1  # Max order of monomials for EDMD
 obs = ClassObservable(forceCoeffsPatches=forceCoeffsPatches, ARef=ARef, lRef=lRef, writeY=writeY, writeGrad=writeGrad)
 
 of = ClassOpenFOAM(pathProblem, obs, pathOut, nProc, nInputs, dimInputs, iInputs, h=hFOAM, Re=Re, dimSpace=dimSpace)
-model = of.createOrUpdateModel(uMin=uMin, uMax=uMax, hWrite=h, dimZ=dimZ, typeUGrid='cubeCenter', nGridU=nGridU)
+model = of.createOrUpdateModel(uMin=uMin, uMax=uMax, hWrite=h, dimZ=dimZ, typeUGrid='cube', nGridU=nGridU)
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Data collection
@@ -77,7 +77,6 @@ dataSet = ClassControlDataSet(h=model.h, T=Ttrain)
 
 # Create a sequence of controls
 uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=10, nhMax=20)
-# uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence=[0.0, 0.0, 0.0], u=uTrain, iu=iuTrain)
 
 # Create a data set (and save it to an npz file)
 if os.path.exists(pathData + '.npz'):
@@ -104,21 +103,6 @@ surrogate = ClassSurrogateModel('EDMD.py', uGrid=model.uGrid, h=nLag * model.h, 
 surrogate.createROM(data)
 
 # -------------------------------------------------------------------------------------------------------------------- #
-# Compare surrogate model with full model
-# -------------------------------------------------------------------------------------------------------------------- #
-
-# Simulate surrogate model using every nLag'th entry of the training input
-iuCoarse = dataSet.rawData.iu[1][nDelay * nLag::nLag]
-z0 = np.zeros([1, model.dimZ * (nDelay + 1)], dtype=float)
-for i in range(nDelay + 1):
-    z0[0, i * model.dimZ: (i + 1) * model.dimZ] = dataSet.rawData.z[1][(nDelay - i) * nLag, :]
-[z, tSurrogate] = surrogate.integrateDiscreteInput(z0, nLag * nDelay * h, iuCoarse)
-
-# Compare states and control
-plot(z={'t': dataSet.rawData.t[1], 'z': dataSet.rawData.z[1][:, :model.dimZ], 'iplot': 0},
-     zr={'t': tSurrogate, 'zr': z[:, :model.dimZ], 'markerSize': 5, 'iplot': 0})
-
-# -------------------------------------------------------------------------------------------------------------------- #
 # MPC
 # -------------------------------------------------------------------------------------------------------------------- #
 
@@ -127,26 +111,24 @@ TRef = T + 2.0
 nRef = int(round(TRef / h)) + 1
 zRef = np.zeros([nRef, 3], dtype=float)
 
-# zRef[:, 0] = 3.0
 tRef = np.array(np.linspace(0.0, T, nRef))
-# zRef[:, 0] = 0.0 + 1.5 * np.sin(2.0 * tRef * 2.0 * np.pi / TRef)
 
-zRef[:, 0] = 0.5
+zRef[:, 2] = 0.5
 zRef[:, 1] = -0.5
 
 iRef = np.where(tRef > 10.0)
-zRef[iRef, 0] = 1.0
+zRef[iRef, 2] = 1.0
 zRef[iRef, 1] = -1.0
 
 iRef = np.where(tRef > 20.0)
 zRef[iRef, :] = 0.0
 
 iRef = np.where(tRef > 30.0)
-zRef[iRef, 0] = -1.0
+zRef[iRef, 2] = -1.0
 zRef[iRef, 1] = -0.5
 
 iRef = np.where(tRef > 40.0)
-zRef[iRef, 0] = -0.5
+zRef[iRef, 2] = -0.5
 zRef[iRef, 1] = -1.0
 
 iRef = np.where(tRef > 50.0)
@@ -160,7 +142,7 @@ reference = ClassReferenceTrajectory(model, T=TRef, zRef=zRef, iRef=iRef)
 MPC = ClassMPC(np=3, nc=1, typeOpt='continuous', scipyMinimizeMethod='SLSQP')  # scipyMinimizeMethod='trust-constr'
 
 # Weights for the objective function
-Q = [0.0, 1.0]  # reference tracking: (z - deltaZ)^T * Q * (z - deltaZ)
+Q = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0]  # reference tracking: (z - deltaZ)^T * Q * (z - deltaZ)
 R = [1e-3]  # control cost: u^T * R * u
 S = [0.0]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 
@@ -169,24 +151,12 @@ S = [0.0]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 # -------------------------------------------------------------------------------------------------------------------- #
 
 # 1) Surrogate model, continuous input obtained via relaxation of the integer input in uGrid
-# resultCont = MPC.run(model, reference, surrogateModel=surrogate, T=T, Q=Q, R=R, S=S)
-# resultCont.saveMat('MPC-Cont', pathOut)
-#
-# plot(z={'t': resultCont.t, 'z': resultCont.z, 'reference': reference, 'iplot': 0},
-#      u={'t': resultCont.t, 'u': resultCont.u, 'iplot': 1},
-#      J={'t': resultCont.t, 'J': resultCont.J, 'iplot': 2},
-#      nFev={'t': resultCont.t, 'nFev': resultCont.nFev, 'iplot': 3})
+resultCont = MPC.run(model, reference, surrogateModel=surrogate, T=T, Q=Q, R=R, S=S)
+resultCont.saveMat('MPC-Cont', pathOut)
 
-# 2) Surrogate model, integer control computed via relaxation and sum up rounding
-MPC.typeOpt = 'SUR_coarse'
-result_SUR = MPC.run(model, reference, surrogateModel=surrogate, T=T, Q=Q, R=R, S=S)
-result_SUR.saveMat('MPC-SUR', pathOut)
-
-plot(z={'t': result_SUR.t, 'z': result_SUR.z, 'reference': reference, 'iplot': 0},
-     u={'t': result_SUR.t, 'u': result_SUR.u, 'iplot': 1},
-     J={'t': result_SUR.t, 'J': result_SUR.J, 'iplot': 2},
-     nFev={'t': result_SUR.t, 'nFev': result_SUR.nFev, 'iplot': 3},
-     alpha={'t': result_SUR.t, 'alpha': result_SUR.alpha, 'iplot': 4},
-     omega={'t': result_SUR.t, 'omega': result_SUR.omega, 'iplot': 5})
+plot(z={'t': resultCont.t, 'z': resultCont.z, 'reference': reference, 'iplot': 0},
+     u={'t': resultCont.t, 'u': resultCont.u, 'iplot': 1},
+     J={'t': resultCont.t, 'J': resultCont.J, 'iplot': 2},
+     nFev={'t': resultCont.t, 'nFev': resultCont.nFev, 'iplot': 3})
 
 print('Done')

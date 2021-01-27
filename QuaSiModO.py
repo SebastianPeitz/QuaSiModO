@@ -265,6 +265,7 @@ class ClassModel:
                 uGrid2[:-1, :] = uGrid
                 uGrid2[-1, :] = self.uC
                 uGrid = uGrid2
+                self.nU += 1
 
         elif typeUGrid == 'centerStar':
             self.uC = 0.5 * (uMin + uMax)
