@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from scipy.linalg import pinv
 from scipy.optimize import minimize
 from scipy.optimize import Bounds
+from scipy.special import binom
 
 # some stuff for nice plots
 font = {'family': 'sans-serif', 'sans-serif': ['Helvetica'], 'size': 16}
@@ -25,7 +26,7 @@ u_max = 4.0                     # upper bound for control
 V = [u_min, u_max]              # finite set of admissible controls in (II) and (III)
 nu = len(V)                     # dimension of V
 
-Q = [0.0, 1.0]                  # weights on the diagonal of the Q-matrix in tje objective function
+Q = [0.0, 1.0]                  # weights on the diagonal of the Q-matrix in the objective function
 
 y0 = [1.0, 1.0]                 # initial condition for y
 
@@ -55,7 +56,7 @@ def coarseGridToFine(x):
 
 
 # -------------------------------------------------------------------------------------------------------------------- #
-# ODE: Define right-hand side, ODE integrator and time-T-map Phi
+# ODE: Define right-hand side (Duffing), ODE integrator (RK4) and time-T-map Phi
 # -------------------------------------------------------------------------------------------------------------------- #
 def rhs(y_, u_):
     alpha, beta, delta = -1.0, 1.0, 0.0
@@ -67,8 +68,8 @@ def ODE(u_, y0_):
     y_[0, :] = y0_
     for ii in range(u_.shape[0] - 1):
         k1 = rhs(y_[ii, :], u_[ii])
-        k2 = rhs(y_[ii, :] + h / 2 * k1[:], 0.5 * (u_[ii] + u_[ii]))
-        k3 = rhs(y_[ii, :] + h / 2 * k2[:], 0.5 * (u_[ii] + u_[ii]))
+        k2 = rhs(y_[ii, :] + h / 2 * k1[:], u_[ii])
+        k3 = rhs(y_[ii, :] + h / 2 * k2[:], u_[ii])
         k4 = rhs(y_[ii, :] + h * k3[:], u_[ii])
         y_[ii + 1, :] = y_[ii, :] + h / 6 * (k1[:] + 2 * k2[:] + 2 * k3[:] + k4[:])
     return y_
@@ -112,12 +113,13 @@ for j in range(nu):
         Y[:, i, j] = Phi(V[j], X[:, i])
 
 # -------------------------------------------------------------------------------------------------------------------- #
-# Surrogate model via EDMD with polynomial dictionary
+# Surrogate model via EDMD with polynomial dictionary psi
 # -------------------------------------------------------------------------------------------------------------------- #
-maxOrder = 3            # maximum order of polynomial terms
+# maximum order of polynomial terms
+maxOrder = 3
 
 
-# lifts input matrix X to PsiX, containing polynomials of up to order maxOrder
+# The function lifts input matrix X to PsiX, containing polynomials of up to order maxOrder
 # the array iy denotes the indices for projecting PsiX to X
 # if maxOrder is set to zero, then PsiX = X, meaning that we use DMD
 def psi(X_):
@@ -125,8 +127,9 @@ def psi(X_):
         iy_ = [0, 1]
         return X_, iy_
     else:
-        PsiX_ = np.ones((100, X_.shape[1]), dtype=float)
-        PsiX_[1:3, :] = X_
+        nPoly = int(binom(2 + maxOrder, maxOrder))
+        PsiX_ = np.ones((nPoly, X_.shape[1]), dtype=float)
+        PsiX_[1: 3, :] = X_
 
         s = 3
         for jj in range(2, maxOrder + 1):
@@ -135,20 +138,20 @@ def psi(X_):
                 s += 1
 
         iy_ = [1, 2]
-        return PsiX_[:s, :], iy_
+        return PsiX_, iy_
 
 
-PsiX, iy = psi(X)       # Lift X to PsiX
-G = PsiX @ PsiX.T       # define G-Matrix for EDMD
+PsiX, iy = psi(X)                   # Lift X to PsiX
+G = PsiX @ PsiX.T                   # define G-Matrix for EDMD
 
-dimZ = PsiX.shape[0]    # dimension of the lifted state
+dimZ = PsiX.shape[0]                # dimension of the lifted state
 
 # Compute Koopman matrices for the individual systems wit fixed controls u in V
 K = np.zeros((dimZ, dimZ, nu), dtype=float)
 for i in range(nu):
-    PsiY, _ = psi(Y[:, :, i])
-    Ai = PsiX @ PsiY.T
-    K[:, :, i] = (pinv(G) @ Ai).T
+    PsiY, _ = psi(Y[:, :, i])       # Lift Y to PsiY
+    Ai = PsiX @ PsiY.T              # Define A-matrix for i-th system in V for EDMD
+    K[:, :, i] = (pinv(G) @ Ai).T   # Calculate K for the i-th system
 
 # calculat lifted initial condition z0
 y0a = np.zeros((2, 1), dtype=float)
@@ -158,20 +161,20 @@ z0 = z0a[:, 0]
 
 
 # -------------------------------------------------------------------------------------------------------------------- #
-# Integrator and Objective for surrogate model
+# Integrator and Objective for reduced order model
 # -------------------------------------------------------------------------------------------------------------------- #
-def ROMAlpha(alpha, z0_):
-    z_ = np.zeros((alpha.shape[0], dimZ), dtype=float)
+def ROM(alpha_, z0_):
+    z_ = np.zeros((alpha_.shape[0], dimZ), dtype=float)
     z_[0, :] = z0_
 
     # state at next time step is computed via a convex combination of the autonomous systems
-    for ii in range(alpha.shape[0] - 1):
-        z_[ii + 1, :] += (alpha[ii] * K[:, :, 0] + (1.0 - alpha[ii]) * K[:, :, 1]) @ z_[ii, :]
+    for ii in range(alpha_.shape[0] - 1):
+        z_[ii + 1, :] += (alpha_[ii] * K[:, :, 0] + (1.0 - alpha_[ii]) * K[:, :, 1]) @ z_[ii, :]
     return z_
 
 
 def J_IV(alpha_):
-    z_ = ROMAlpha(alpha_, z0)
+    z_ = ROM(alpha_, z0)
     dz = z_[:, iy] - y_ref2
     dzQ = np.zeros(dz.shape[0], dtype=float)
     for ii in range(dz.shape[1]):
@@ -184,22 +187,18 @@ def J_IV(alpha_):
 # Sum up rounding algorithm by Sager, Bock & Diehl
 # -------------------------------------------------------------------------------------------------------------------- #
 def SUR(alpha_):
-
     omega = np.zeros((nt2, 2), dtype=float)
     omegaHat = np.zeros(nu)
-
     for ii in range(nt2):
         for jj in range(nu - 1):
             omegaHat[jj] = np.sum(alpha_[:ii + 1]) - np.sum(omega[:ii, jj])
         omegaHat[-1] = np.sum(1.0 - alpha_[:ii + 1]) - np.sum(omega[:ii, -1])
         iOut = np.argmax(omegaHat)
         omega[ii, iOut] = 1.0
-
     u2 = np.zeros(nt2, dtype=float)
     for ii in range(nt2):
         for jj in range(nu):
             u2[ii] += omega[ii, jj] * V[jj]
-
     return u2
 
 
@@ -211,7 +210,7 @@ u_test2 = V[0] * alpha_test2 + V[1] * (np.ones(nt2, dtype=float) - alpha_test2)
 u_test = coarseGridToFine(u_test2)
 
 y_test = ODE(u_test, y0)
-z_test = ROMAlpha(alpha_test2, z0)
+z_test = ROM(alpha_test2, z0)
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Visualization of the comparison
@@ -328,5 +327,5 @@ ax[3].set_xlabel(r't')
 ax[3].set_ylabel(r'$|u - u(I)|$')
 ax[3].grid()
 ax[3].legend()
-fig.suptitle(r'Comparison different optimal solutions')
+fig.suptitle(r'Comparison of different optimal solutions')
 plt.show()
