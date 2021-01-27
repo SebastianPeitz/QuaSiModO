@@ -84,7 +84,7 @@ def Phi(u_, y0_):
 # -------------------------------------------------------------------------------------------------------------------- #
 # Objective function for problem (I)
 # -------------------------------------------------------------------------------------------------------------------- #
-def J(u_):
+def J_I(u_):
     dy = ODE(u_, y0) - y_ref
     dyQ = np.zeros(dy.shape[0], dtype=float)
     for ii in range(dy.shape[1]):
@@ -170,7 +170,7 @@ def ROMAlpha(alpha, z0_):
     return z_
 
 
-def Jalpha(alpha_):
+def J_IV(alpha_):
     z_ = ROMAlpha(alpha_, z0)
     dz = z_[:, iy] - y_ref2
     dzQ = np.zeros(dz.shape[0], dtype=float)
@@ -256,7 +256,7 @@ plt.show()
 bounds = Bounds(u_min * np.ones(nt, dtype=float), u_max * np.ones(nt, dtype=float))
 
 # call optimizer
-res = minimize(J, u0, method='SLSQP', bounds=bounds)
+res = minimize(J_I, u0, method='SLSQP', bounds=bounds)
 
 # extract u, J and calculate y
 JI_opt = res.fun
@@ -273,7 +273,7 @@ alpha02 = 0.5 * np.ones(nt2, dtype=float)
 bounds = Bounds(0.0 * np.ones(nt2, dtype=float), 1.0 * np.ones(nt2, dtype=float))
 
 # call optimizer
-res = minimize(Jalpha, alpha02, method='SLSQP', bounds=bounds)
+res = minimize(J_IV, alpha02, method='SLSQP', bounds=bounds)
 
 # extract alpha and J
 JIV_opt = res.fun
