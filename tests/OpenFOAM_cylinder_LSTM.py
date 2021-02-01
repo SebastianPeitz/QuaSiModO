@@ -23,7 +23,7 @@ pathProblem = path.join(pathMain, 'OpenFOAM/problems/cylinder')
 pathData = path.join(pathOut, 'data')
 pathSurrogate = path.join(pathOut, 'surrogate_3')
 reuseSurrogate = True
-nProc = 8
+nProc = 1
 
 nInputs = 1
 dimInputs = 1
@@ -113,49 +113,47 @@ else:
 # Compare surrogate model with full model
 # -------------------------------------------------------------------------------------------------------------------- #
 
-# Simulate surrogate model using every nLag'th entry of the training input
 steps = 300
 steps_sur = int(steps / nLag)
-steps_delay = nDelay * nLag
-start = 0
-# iuCoarse = dataSet.rawData.iu[0][nDelay * nLag:steps + nDelay * nLag:nLag]
-
-iu = np.random.randint(0, 3, [steps_sur, 1])
-iu = np.reshape(np.concatenate((50 * [0], 50 * [1], 50 * [2])), [steps_sur, 1])
-u = np.zeros([steps, 1])
-for i in range(steps_sur):
-    print(nLag * i, nLag * (i + 1) - 1)
-    u[nLag * i:nLag * (i + 1), 0] = model.uGrid[iu[i, 0]]
-
-z0 = dataSet.rawData.z[0][start, :]
-
-# compute delay
-_, z_delay, t_delay, _ = model.integrate(z0, np.zeros([steps_delay + 1, 1]), 0.0)
-
-_, z, t, _ = model.integrate(z0, u, steps_delay * model.h)
-
-temp = np.reshape(z_delay[::nLag, :], [1, (nDelay + 1), dimZ])
-temp = temp[:, ::-1, :]
-z0 = np.reshape(temp, [dimZ * (nDelay + 1)])
-
-[zSurrogate, tSurrogate] = surrogate.integrateDiscreteInput(z0, steps_delay * model.h, iu)
-print(z[0, :dimZ], t[0])
-print(zSurrogate[0, :dimZ], tSurrogate[0])
-
-fig, axs = plt.subplots(nrows=3, ncols=1, constrained_layout=True, figsize=(10, 6))
-plt.title("Test performance", fontsize=12)
-for i in range(2):
-    axs[i].plot(tSurrogate, zSurrogate[:, i], linewidth=2)
-    axs[i].plot(t, z[:, i], linewidth=2)
-    axs[i].set_ylabel(r"$x[$" + str(i) + r"$]$", fontsize=12)
-
-axs[2].plot(tSurrogate, model.uGrid[iu[:, 0]], linewidth=2)
-axs[2].plot(t, u, linewidth=2)
-plt.xlabel(r"$t$", fontsize=12)
-
-# Compare states and control
-plot(z={'t': t, 'z': z[:, :model.dimZ], 'iplot': 0},
-     zr={'t': tSurrogate, 'zr': zSurrogate[:, :model.dimZ], 'markerSize': 5, 'iplot': 0})
+# # Simulate surrogate model using a random control
+# steps_delay = nDelay * nLag
+# start = 0
+#
+# iu = np.random.randint(0, 3, [steps_sur, 1])
+# iu = np.reshape(np.concatenate((50 * [0], 50 * [1], 50 * [2])), [150, 1])
+# u = np.zeros([steps, 1])
+# for i in range(steps_sur):
+#     u[nLag * i:nLag * (i + 1), 0] = model.uGrid[iu[i, 0]]
+#
+# z0 = dataSet.rawData.z[0][start, :]
+#
+# # compute delay
+# _, z_delay, t_delay, _ = model.integrate(z0, np.zeros([steps_delay + 1, 1]), 0.0)
+#
+# _, z, t, _ = model.integrate(z0, u, steps_delay * model.h)
+#
+# temp = np.reshape(z_delay[::nLag, :], [1, (nDelay + 1), dimZ])
+# temp = temp[:, ::-1, :]
+# z0 = np.reshape(temp, [dimZ * (nDelay + 1)])
+#
+# [zSurrogate, tSurrogate] = surrogate.integrateDiscreteInput(z0, steps_delay * model.h, iu)
+# print(z[0, :dimZ], t[0])
+# print(zSurrogate[0, :dimZ], tSurrogate[0])
+#
+# fig, axs = plt.subplots(nrows=3, ncols=1, constrained_layout=True, figsize=(10, 6))
+# plt.title("Test performance", fontsize=12)
+# for i in range(2):
+#     axs[i].plot(tSurrogate, zSurrogate[:, i], linewidth=2)
+#     axs[i].plot(t, z[:, i], linewidth=2)
+#     axs[i].set_ylabel(r"$x[$" + str(i) + r"$]$", fontsize=12)
+#
+# axs[2].plot(tSurrogate, model.uGrid[iu[:, 0]], linewidth=2)
+# axs[2].plot(t, u, linewidth=2)
+# plt.xlabel(r"$t$", fontsize=12)
+#
+# # Compare states and control
+# plot(z={'t': t, 'z': z[:, :model.dimZ], 'iplot': 0},
+#      zr={'t': tSurrogate, 'zr': zSurrogate[:, :model.dimZ], 'markerSize': 5, 'iplot': 0})
 
 # Test 2
 # Simulate surrogate model using every nLag'th entry of the training input
