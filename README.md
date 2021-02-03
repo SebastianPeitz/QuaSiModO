@@ -40,5 +40,9 @@ Surrogate models are usually created in the subfolder *surrogateModels*. They ne
 ## Data collection
 The data is stored in a variable of type *ClassControlDataSet*, e.g., *dataSet = ClassControlDataSet(h=0.1, T=10)*, where trajectories are 10 seconds long with a time increment of 0.1 seconds. Input trajectories are created by calling, e.g., *uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=1, nhMax=5)*. In this case, the input is piecewise constant, inputs remaining constant over one to five time steps. The data to pass on to the surrogate modeling can then be prepared by calling *prepareData*, e.g., *data = dataSet.prepareData(model, method='dX', rawData=dataSet.rawData, nLag=nLag, nDelay=0)*. Here, the *method* variable says how to process the data (in this case, we get the trajectories *X* and their time derivatives *dX*; if we write 'Y', we get the trajectories and their time-shifted version (by *nLag*)).
 
-## OpenFOAM support
+# Additional tools
+## OpenFOAM
 The fluid dynamics examples all use the open source flow solver [**OpenFOAM**](https://www.openfoam.com/). The code has been tested with the OpenFOAM version *v1912*. The required functionality is implemented in the files in the subfolder *OpenFOAM*. To use OpenFOAM, the configuration in *configOpenFOAM.py* needs to be adapted to the correct paths. The different problem setups are stored in individual folders in *OpenFOAM/problems*, and the control input has to be realized via ASCII files with names *control0*, *control1*, ..., that are located in the main folder.
+
+## d3s
+The toolbox [**d3s by Stefan Klus**](https://github.com/sklus/d3s) is included as well. The surrogate models using EDMD and generator EDMD make use of some of the routines implemented in d3s.
