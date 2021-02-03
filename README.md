@@ -22,7 +22,7 @@ The QuaSiModO algorithm is designed to universally transform predictive models i
 All main functionalities are implemented in *QuaSiModO.py*, and some helper functions for visualization are implemented in *visualization.py*. For more details on the different options when creating models or data sets, please refer to the introductory comments of the different class definitions.
 
 ## Models
-Model files are usually created in the subfolder *models*. They need to have a function called **simulateModel(y0, t0, u, model)**, where the inputs are the initial state **y0** at initial time **t0** and the control is an array of size *(nt, dim(U))*. The last input **model** is of type *ClassModel* and contains additonal parameters as well as the necessary details regarding the numerical discretization etc. It needs to be created in the main file, see the examples. The function **returns y, z, t and model**, where **y** and **z** are the full state the obsered quantiy, respectively.
+Model files are usually created in the subfolder *models*. They need to have a function called **simulateModel(y0, t0, u, model)**, where the inputs are the initial state **y0** at initial time **t0** and the control is an array of size *(nt, dim(U))*. The last input **model** is of type *ClassModel* and contains additonal parameters as well as the necessary details regarding the numerical discretization etc. It needs to be created in the main file, see the examples. The function **returns y**, **z**, **t** and **model**, where **y** and **z** are the full state the obsered quantiy, respectively.
 
 ## Surrogate Models
 Surrogate models are usually created in the subfolder *surrogateModels*. They need to contain the functions 
@@ -31,9 +31,9 @@ Surrogate models are usually created in the subfolder *surrogateModels*. They ne
 * createSurrogateModel
 * updateSurrogateModel *(optional)*
 
-**timeTMap(z0, t0, iu, modelData)** (i.e., the time-T-map of the reduced model), where **z0** and **t0** are the initial conditions, and **iu** is from *{1, ..., m}* and denotes the index of the autonomous system that is used. **modelData** is of type *ClassSurrogateModel* and contains all the necessary surrogate model information. It needs to be created beforehand. The routine **returns z, t and modelData**
+**timeTMap(z0, t0, iu, modelData)** (i.e., the time-T-map of the reduced model), where **z0** and **t0** are the initial conditions, and **iu** is from *{1, ..., m}* and denotes the index of the autonomous system that is used. **modelData** is of type *ClassSurrogateModel* and contains all the necessary surrogate model information. It needs to be created beforehand. The routine **returns z**, **t** and **modelData**
 
-**reateSurrogateModel(modelData, data)** is the routine where the surrogate model is created and stored in **modelData**, using the data that is given via **data** of type *ClassControlDataSet*. **returns modelData**.
+**createSurrogateModel(modelData, data)** is the routine where the surrogate model is created and stored in **modelData**, using the data that is given via **data** of type *ClassControlDataSet*. **returns modelData**.
 
 **updateSurrogateModel(modelData, z, u, iu)** is used to update one or more models during the MPC routine using collected data. Here, **z**, **u** and **iu** are the time series that are used to update the model.
 
