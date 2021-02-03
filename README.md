@@ -11,7 +11,6 @@ Many different examples (including the ones from the paper) are available in the
 
 # Short description
 The QuaSiModO algorithm is designed to universally transform predictive models into discrete-time control systems with continuous inputs and a tracking-type objective function. To achieve this, we use several transformations of the optimization problem:
-
 1. **Quantization** of the control set *U* into a finite set *V* with *m* different fixed control inputs, transforming the non-autonomous control system into *m* autonomous systems; this yields a *mixed-integer optimal control problem (MIOCP)*,
 2. **Simulation** (i.e., data collection) of the *m* autonomous systems with fixed inputs,
 3. **Modeling** of the *m* systems using an arbitrary surrogate modeling technique,
@@ -24,9 +23,16 @@ All main functionalities are implemented in *QuaSiModO.py*, and some helper func
 ## Models
 Model files are usually created in the subfolder *models*. They need to have a function called **simulateModel(y0, t0, u, model)**, where the inputs are the initial state **y0** at initial time **t0** and the control is an array of size *(nt, dim(U))*. The last input **model** is of type *ClassModel* and contains additonal parameters as well as the necessary details regarding the numerical discretization etc. It needs to be created in the main file, see the examples. The function **returns y**, **z**, **t** and **model**, where **y** and **z** are the full state the obsered quantiy, respectively.
 
+When initializing a model class by calling *ClassModel*, several variables need to be specified:
+* the model input, which can be a function call (i.e., the right-hand side of an ODE) or the name of a py file stored in *models* (e.g., *'burgers.py'*)
+* the time step **h** for the numerical solution of the model
+* the control bounds **uMin** and **uMax**
+* additional **params** (optional)
+* the dimension of the observable, i.e., **dimZ**
+* the type of the control quantization via **typeUGrid** (*'cube'*, *'cubeCenter'*, *'centerStar'* or *'oneSidedStar'*, see the description in *QuaSiModO.py* for details) and **nGridU** (which describes the number of discretization points in each spatial dimension)
+
 ## Surrogate Models
 Surrogate models are usually created in the subfolder *surrogateModels*. They need to contain the functions 
-
 * timeTMap
 * createSurrogateModel
 * updateSurrogateModel *(optional)*
@@ -38,13 +44,13 @@ Surrogate models are usually created in the subfolder *surrogateModels*. They ne
 **updateSurrogateModel(modelData, z, u, iu)** is used to update one or more models during the MPC routine using collected data. Here, **z**, **u** and **iu** are the time series that are used to update the model.
 
 ## Data collection
-The data is stored in a variable of type *ClassControlDataSet*, e.g., *dataSet = ClassControlDataSet(h=0.1, T=10)*, where trajectories are 10 seconds long with a time increment of 0.1 seconds. 
+The data is stored in a variable of type *ClassControlDataSet*, e.g., **dataSet = ClassControlDataSet(h=0.1, T=10)**, where trajectories are 10 seconds long with a time increment of 0.1 seconds. 
 
-Input trajectories are created by calling, e.g., *uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=1, nhMax=5)*. In this case, the input is piecewise constant, inputs remaining constant over one to five time steps. 
+Input trajectories are created by calling, e.g., **uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseConstant', nhMin=1, nhMax=5)**. In this case, the input is piecewise constant, inputs remaining constant over one to five time steps. 
 
-The data is created by simulation when calling *createData* (e.g., *createData(model=model, u=uTrain, savePath=pathData)*, where the model is passed to routine along with the set of input trajectories and a potential path to store the model for later use).
+The data is created by simulation when calling *createData* (e.g., **dataSet.createData(model=model, u=uTrain, savePath=pathData)**, where the model is passed to routine along with the set of input trajectories and a potential path to store the model for later use).
 
-The data to pass on to the surrogate modeling can then be prepared by calling *prepareData*, e.g., *data = dataSet.prepareData(model, method='dX', rawData=dataSet.rawData, nLag=nLag, nDelay=0)*. Here, the *method* variable says how to process the data (in this case, we get the trajectories *X* and their time derivatives *dX*; if we write 'Y', we get the trajectories and their time-shifted version (by *nLag*)).
+The data to pass on to the surrogate modeling can then be prepared by calling *prepareData*, e.g., **data = dataSet.prepareData(model, method='dX', rawData=dataSet.rawData, nLag=nLag, nDelay=0)**. Here, the **method** variable says how to process the data (in this case, we get the trajectories *X* and their time derivatives *dX*; if we write 'Y', we get the trajectories and their time-shifted version (by **nLag**)).
 
 # Additional tools
 ## OpenFOAM
