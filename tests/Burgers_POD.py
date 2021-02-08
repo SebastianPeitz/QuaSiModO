@@ -52,10 +52,8 @@ model.setGrid1D(L, dx, xObs)
 # y0 = np.linspace(1.0, 0.0, len(model.grid.x))
 y0 = np.zeros([len(model.grid.x)], dtype=float)
 y0[model.grid.x <= L / 2.0] = 1.0
-# y0[model.grid.x > L/2.0] = -1.0
 y0[0] = 0.0
 y0[-1] = 0.0
-# y0 = 1.0 * np.sin(model.grid.x * 2.0 * np.pi / model.grid.x[-1])
 z0 = y0[model.grid.iObs]
 
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -71,19 +69,10 @@ uTrain, iuTrain = dataSet.createControlSequence(model, typeSequence='piecewiseCo
 # Create a data set (and save it to an npz file)
 y0Train = list()
 y0Train.append(y0)
-# y0Train.append(0.0 * np.ones([len(model.grid.x)], dtype=float))
-# y0Train.append(np.linspace(1.0, 0.0, len(model.grid.x)))
 dataSet.createData(model=model, y0=y0Train, u=uTrain)
 
 # prepare data according to the desired reduction scheme
 data = dataSet.prepareData(model, method='', rawData=dataSet.rawData, nLag=nLag)
-
-# Plot the control u, the control index iu and the corresponding data sets for y and z
-# plot(u={'t': dataSet.rawData.t[0], 'u': dataSet.rawData.u[0], 'iplot': 0},
-#      iu={'t': dataSet.rawData.t[0], 'iu': dataSet.rawData.iu[0], 'iplot': 1},
-#      y={'t': dataSet.rawData.t[0], 'y': dataSet.rawData.y[0], 'iplot': 2, 'legend': False},
-#      z={'t': dataSet.rawData.t[0], 'z': dataSet.rawData.z[0], 'iplot': 3})
-# plot(y={'t': dataSet.rawData.t[0][::100], 'y': dataSet.rawData.y[0][::100], 'type': 'Surface', 'x': model.grid.x, 'iplot': 0})
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # Surrogate modeling
@@ -129,11 +118,6 @@ for i in range(surrogate.uGrid.shape[0]):
         alphaPod[i][j, :] = surrogate.modelData.Psi[i].transpose() @ zPod[i][j, :]
         alphaFull[i][j, :] = surrogate.modelData.Psi[i].transpose() @ dataSetValidation.rawData.z[i][j, :]
 
-# delta = np.zeros([surrogate.uGrid.shape[0], zPod[0].shape[0]], dtype=float)
-# for j in range(surrogate.uGrid.shape[0]):
-#     for i in range(zPod[j].shape[0]):
-#         delta[j, i] = surrogate.modelData.Psi[i].transpose() @ (zPod[j][i, :] - dataSetValidation.rawData.z[j][i, :])
-
 # Compare states and control
 plot(z0={'t': dataSetValidation.rawData.t[0], 'z0': alphaFull[0], 'iplot': 0},
      z0r={'t': ti, 'z0r': alphaPod[0], 'iplot': 0},
@@ -153,13 +137,6 @@ TRef = T + 2.0
 nRef = int(round(TRef / h)) + 1
 
 zRef = 0.0 * np.ones([nRef, 1], dtype=float)
-# # zRef[:, 0] = 0.5
-# tRef = np.array(np.linspace(0.0, T, nRef))
-# zRef[:, 0] = 0.5 + 0.05 * np.sin(np.pi * tRef / 30.0)
-
-# zRef = np.zeros([nRef, len(y0)], dtype=float)
-# for i in range(nRef):
-#     zRef[i, :] = np.sin(model.grid.x * 2.0 * np.pi / model.grid.x[-1])  # y0
 
 reference = ClassReferenceTrajectory(model, T=TRef, zRef=zRef)
 
@@ -174,9 +151,6 @@ S = [0.0]  # weighting of (u_k - u_{k-1})^T * S * (u_k - u_{k-1})
 # -------------------------------------------------------------------------------------------------------------------- #
 # Solve different MPC problems (via "MPC.run") and plot the result
 # -------------------------------------------------------------------------------------------------------------------- #
-
-# y0 = np.zeros([len(model.grid.x)], dtype=float)
-# z0 = y0[model.grid.iObs]
 
 # 1) Surrogate model, continuous input obtained via relaxation of the integer input in uGrid
 resultCont = MPC.run(model, reference, surrogateModel=surrogate, y0=y0, T=T, Q=Q, R=R, S=S, updateSurrogate=True)
