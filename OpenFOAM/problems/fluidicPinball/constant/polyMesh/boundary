@@ -1,0 +1,71 @@
+/*--------------------------------------------------------------------*\
+|                                                                      |
+|    File exported from Salome Platform using SalomeToFoamExporter     |
+|                                                                      |
+\*--------------------------------------------------------------------*/
+FoamFile
+{
+	version		2.0;
+	format		ascii;
+	class		polyBoundaryMesh;
+	location	"constant/polyMesh";
+	object		boundary;
+}
+
+9
+(
+	DomainInterior
+	{
+	type		empty;
+	nFaces		47927;
+	startFace	71065;
+	}
+	In
+	{
+	type		patch;
+	nFaces		48;
+	startFace	118992;
+	}
+	Up
+	{
+	type		patch;
+	nFaces		104;
+	startFace	119040;
+	}
+	Down
+	{
+	type		patch;
+	nFaces		104;
+	startFace	119144;
+	}
+	Out
+	{
+	type		patch;
+	nFaces		48;
+	startFace	119248;
+	}
+	Cyl1
+	{
+	type		wall;
+	nFaces		449;
+	startFace	119296;
+	}
+	Cyl2
+	{
+	type		wall;
+	nFaces		449;
+	startFace	119745;
+	}
+	Cyl3
+	{
+	type		wall;
+	nFaces		449;
+	startFace	120194;
+	}
+	DomainInterior_top
+	{
+	type		empty;
+	nFaces		47927;
+	startFace	120643;
+	}
+)
