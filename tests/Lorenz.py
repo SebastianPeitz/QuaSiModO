@@ -56,7 +56,7 @@ elif method == "LSTM":
     nDelay = 10  # Number of Delay steps for LSTM (LSTM needs a delay)
     nLag = 100  # Lag time for LSTM
     nhidden = 50  # number of hidden neurons in LSTM cell
-    epochs = 20
+    epochs = 2
     batch_size = 72
 
 # -------------------------------------------------------------------------------------------------------------------- #
