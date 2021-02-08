@@ -1,5 +1,6 @@
 # -------------------------------------------------------------------------------------------------------------------- #
 # Add path and create output folder
+
 from os import sep, makedirs, path
 from sys import path as syspath
 
@@ -15,7 +16,6 @@ makedirs(pathOut, exist_ok=True)
 
 from QuaSiModO import *
 from visualization import *
-import os
 import numpy as np
 
 # -------------------------------------------------------------------------------------------------------------------- #
@@ -70,7 +70,7 @@ uTrain, iuTrain = dataSet.createControlSequence(model, T=1000.0, typeSequence='p
                                                 nhMax=5)  # , u=uTrain,iu=iuTrain)#,u=uTrain,iu=iuTrain)
 
 # Create a data set (and save it to an npz file)
-if os.path.exists(pathData + '.npz'):
+if path.exists(pathData + '.npz'):
     dataSet.createData(loadPath=pathData)
 else:
     dataSet.createData(model=model, y0=y0, u=uTrain, savePath=pathData)
