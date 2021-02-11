@@ -5,7 +5,7 @@ For more *details* see the associated publication: **[S. Peitz & K. Bieker, On t
 **Authors**: Sebastian Peitz & Katharina Bieker *(Department of Mathematics, Paderborn University)*
 
 ## Example files
-An **intorudctory standalone script** can be found in the *Jupyter notebook* **Standalone_Duffing_EDMD.ipynb** in the main folder.
+An **intorudctory standalone script** can be found in the *Jupyter notebook* **[Standalone_Duffing_EDMD.ipynb](https://github.com/SebastianPeitz/QuaSiModO/blob/master/Standalone_Duffing_EDMD.ipynb)** in the main folder.
 
 Many different examples (including the ones from the paper) are available in the *tests* folder. The associated models can either be found in the *models* folder or - in the case of ODEs - are directly implemented in the main file.
 
