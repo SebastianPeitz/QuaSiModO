@@ -55,7 +55,7 @@ nGridU = 1  # number of parts the grid is split into
 dimZ = 6
 
 Ttrain = 100.0  # Time for the simulation in the traing data generation
-nLag = 5  # Lag time for EDMD
+nLag = 2  # Lag time for EDMD
 nDelay = 1  # Number of delays for modeling
 nMonomials = 1  # Max order of monomials for EDMD
 
@@ -139,7 +139,7 @@ iRef = [1, 3, 5]
 reference = ClassReferenceTrajectory(model, T=TRef, zRef=zRef, iRef=iRef)
 
 # Create class for the MPC problem
-MPC = ClassMPC(np=3, nc=1, typeOpt='continuous', scipyMinimizeMethod='SLSQP')  # scipyMinimizeMethod='trust-constr'
+MPC = ClassMPC(np=5, nc=1, typeOpt='continuous', scipyMinimizeMethod='SLSQP')  # scipyMinimizeMethod='trust-constr'
 
 # Weights for the objective function
 Q = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0]  # reference tracking: (z - deltaZ)^T * Q * (z - deltaZ)
