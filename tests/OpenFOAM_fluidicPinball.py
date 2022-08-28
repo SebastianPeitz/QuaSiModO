@@ -23,7 +23,7 @@ pathProblem = path.join(pathMain, 'OpenFOAM/problems/fluidicPinball')
 pathData = path.join(pathOut, 'data')
 nProc = 4
 
-nInputs = 2
+nInputs = 3
 dimInputs = 1
 iInputs = [0]
 
