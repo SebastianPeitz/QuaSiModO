@@ -1,6 +1,6 @@
 # QuaSiModO
 
-For more *details* see the associated publication: **[S. Peitz & K. Bieker, On the Universal Transformation of Data-Driven Models to Control Systems, arXiv:2102.04722](https://arxiv.org/abs/2102.04722)**
+For more *details* see the associated publication: **[S. Peitz & K. Bieker. On the Universal Transformation of Data-Driven Models to Control Systems. Automatica 149:110840, 2023.](http://dx.doi.org/10.1016/j.automatica.2022.110840)**
 
 **Authors**: Sebastian Peitz & Katharina Bieker *(Department of Mathematics, Paderborn University)*
 
